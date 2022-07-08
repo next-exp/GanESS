@@ -1,0 +1,75 @@
+### ------------------------------------------------------------------
+###  $Id$
+###
+###  Default macro file for the interactive (visual) mode of NEXUS.
+### ------------------------------------------------------------------
+
+### Set some default verbosity
+/control/verbose 2
+/control/saveHistory
+/run/verbose 2
+/tracking/verbose 2
+
+### Create an empty scene and a scene handles (OpenGL)
+#/vis/scene/create
+#/vis/open OGLIX
+#/vis/viewer/create ! ! 900
+
+/vis/open OGL 1900x1200
+
+
+### Draw scene (isometric view)
+#/vis/viewer/set/viewpointThetaPhi
+
+### View offset: Left Up dimensions
+#/vis/viewer/panTo 700 0 mm
+
+### Adding axes x y z size dimensions
+#/vis/scene/add/axes -1200 0 0 300 mm
+
+### Zoom up/down of view
+#/vis/viewer/zoom 1.4
+
+### Create an empty scene and add the detector geometry
+/vis/drawVolume
+
+### Setting drawing style to "wireframe" / "surface"
+/vis/viewer/set/style surface
+/vis/viewer/set/auxiliaryEdge true
+/vis/viewer/set/lineSegmentsPerCircle 100
+/vis/viewer/set/viewpointVector 1 0 0
+
+/vis/scene/add/trajectories smooth
+/vis/modeling/trajectories/create/drawByCharge
+/vis/modeling/trajectories/drawByCharge-0/default/setDrawStepPts true
+/vis/modeling/trajectories/drawByCharge-0/default/setStepPtsSize 2
+
+### Colors
+/vis/geometry/set/colour GasBuffer  0 0.9 0.9 0.9 0.5
+/vis/geometry/set/colour GasPMT     0 0.9 0.9 0.9 0.5
+/vis/geometry/set/colour GasDrift   0 0.9 0.9 0.9 0.5
+/vis/geometry/set/colour GasEL      0 0.9 0.9 0.9 0.5
+#/vis/geometry/set/colour GasDrift   0 0.3 0.1 0.1 0.5
+#/vis/geometry/set/colour GasEL      0 0.1 0.5 0.1 0.5
+/vis/geometry/set/colour Vessel     0 0.2 0.2 0.3 0.3
+/vis/geometry/set/colour Cathode    0 0.28 0.82 0.8 0.7
+/vis/geometry/set/colour Anode      0 0.28 0.82 0.8 0.7
+/vis/geometry/set/colour Gate       0 0.28 0.82 0.8 0.7
+
+### Drawing the tracks (if chosen in user actions)
+# Parameter (omittable) (default=0):
+# 0 : Don't Store trajectories. (if too many tracks cause core dump, use this option)
+# 1 : Choose G4Trajectory as default.
+# 2 : Choose G4SmoothTrajectory as default.
+# 3 : Choose G4RichTrajectory as default.
+# 4 : Choose G4RichTrajectory with auxiliary points as default.
+/tracking/storeTrajectory 2
+
+# Add trajectories to the current scene
+# Parameter (omittable). Options: "smooth", "rich"
+/vis/scene/add/trajectories smooth
+
+# Requests viewer to accumulate hits, tracks, etc. at end of event.
+# 1st param (omittable): "accumulate" or "refresh"
+# 2nd param (omittable): <integer> (default = 100)
+/vis/scene/endOfEventAction accumulate

@@ -1,0 +1,26 @@
+# Kripton
+#/Generator/Kr83mGenerator/region  AD_HOC
+#/Geometry/GaP1/specific_vertex  0. 0. -45. mm
+/Generator/Kr83mGenerator/region  GasDrift
+
+
+
+### PHYSICS
+/PhysicsList/Nexus/clustering           true
+/PhysicsList/Nexus/drift                true
+/PhysicsList/Nexus/electroluminescence  true
+
+
+### VERBOSITY
+/control/verbose   0
+/run/verbose       0
+/event/verbose     0
+/tracking/verbose  0
+
+/process/em/verbose 0
+
+
+### CONTROL
+/nexus/random_seed            -1
+/nexus/persistency/start_id   0
+/nexus/persistency/outputFile NextFlex.next
