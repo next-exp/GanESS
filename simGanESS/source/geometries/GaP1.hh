@@ -26,14 +26,16 @@ class GaP1 : public GeometryBase
     private:
         void DefineConfigurationParameters();
         void Construct();
-        void BuildTPC(G4Material* gas, G4Material* mesh_mat, G4LogicalVolume* logic_vessel);
+        void BuildTPC(G4Material* gas, G4Material* cath_mat, G4Material* el_mat, G4Material* anode_mat, G4LogicalVolume* logic_vessel);
 
     private:
         G4GenericMessenger* msg_;
 
         // Materials
         G4Material* gas_;
-        G4Material* mesh_mat_;
+        G4Material* cath_mat_;
+        G4Material* gate_mat_;
+        G4Material* anode_mat_;
 
         // Vessel parameters
         G4double vessel_rad_   ;
@@ -41,9 +43,13 @@ class GaP1 : public GeometryBase
         G4double vessel_length_;
 
         // Meshes
-        G4double mesh_thickn_;     
-        G4double mesh_transparency_; 
-
+        G4double cath_thickn_;     
+        G4double gate_thickn_;     
+        G4double anode_thickn_;     
+        G4double cath_transparency_; 
+        G4double gate_transparency_; 
+        G4double anode_transparency_; 
+        G4double photoe_prob_;
         // Gas parameters
         G4double pressure_;
         G4double temperature_;
