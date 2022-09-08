@@ -24,7 +24,6 @@ from invisible_cities.      io.event_filter_io import event_filter_writer
 from invisible_cities.      io.pmaps_io        import pmap_writer
 from invisible_cities.  detsim.sensor_utils    import trigger_times
 from invisible_cities.   types.ic_types        import minmax
-from invisible_cities.database                 import load_db
 from invisible_cities.    reco.xy_algorithms   import corona
 from invisible_cities.core                     import system_of_units as units
 
@@ -33,6 +32,7 @@ from .. io     .rwf_io      import  buffer_writer
 from .. reco                import  peak_functions   as pkf
 from .. evm    .containers  import  SensorData
 from .. evm    .event_model import  KrEvent
+from .. database            import  load_db
 
 def calculate_and_save_buffers(buffer_length    : float        ,
                                max_time         : int          ,
@@ -152,7 +152,7 @@ def build_pmap(detector_db, run_number, pmt_samp_wid,
                     stride       = s2_stride,
                     rebin_stride = s2_rebin_stride)
 
-    datapmt = load_db.DataPMT(detector_db, run_number)[:1] ### Patch until proper db
+    datapmt = load_db.DataPMT(detector_db, run_number)
     pmt_ids = datapmt.SensorID[datapmt.Active.astype(bool)].values
 
     def build_pmap(ccwf, s1_indx, s2_indx): # -> PMap
@@ -194,7 +194,7 @@ def wf_from_files(paths, wf_type):
 
 
 def build_pointlike_event(dbfile, run_number, drift_v, reco):
-    datapmt   = load_db.DataPMT(dbfile, run_number)[:1] ### Patch, to be changed once we have a proper DB
+    datapmt   = load_db.DataPMT(dbfile, run_number)
     pmt_xs    = datapmt.X.values
     pmt_ys    = datapmt.Y.values
     pmt_xys   = np.stack((pmt_xs, pmt_ys), axis=1)
@@ -256,8 +256,12 @@ def build_pointlike_event(dbfile, run_number, drift_v, reco):
 def compute_xy_position(dbfile, run_number, **reco_params):
     # `reco_params` is the set of parameters for the corona
     # algorithm either for the full corona or for barycenter
-    datasipm = load_db.DataPMT(dbfile, run_number)[:1] ### Patch, to be fixed when DB is ready
+    datasipm = load_db.DataPMT(dbfile, run_number)
 
     def compute_xy_position(xys, qs):
         return corona(xys, qs, datasipm, **reco_params)
     return compute_xy_position
+
+def get_number_of_active_pmts(detector_db, run_number):
+    datapmt = load_db.DataPMT(detector_db, run_number)
+    return np.count_nonzero(datapmt.Active.values.astype(bool))
