@@ -36,11 +36,11 @@ from invisible_cities.cities.components import collect
 from invisible_cities.cities.components import copy_mc_info
 from invisible_cities.cities.components import zero_suppress_wfs
 from invisible_cities.cities.components import WfType
-from invisible_cities.cities.components import get_number_of_active_pmts
 
 from .components import sensor_data
 from .components import compute_and_write_pmaps
 from .components import wf_from_files
+from .components import get_number_of_active_pmts
 
 @city
 def thekla(files_in, file_out, compression, event_range, print_mod, detector_db, run_number,
