@@ -7,13 +7,12 @@ from functools import lru_cache
 
 
 class DetDB:
-    gap1 = os.environ['GRESDIR'] + '/database/localdb.GaP1.sqlite3'
+    gap = os.environ['GRESDIR'] + '/database/localdb.GaP.sqlite3'
 
 def tmap(*args):
     return tuple(map(*args))
 
 def get_db(db):
-    print(db)
     return getattr(DetDB, db, db)
 
 # Run to take always the same calibration constant, etc for MC files
@@ -23,7 +22,6 @@ runNumberForMC = 0
 def DataPMT(db_file, run_number=1e5):
     if run_number == 0:
         run_number = runNumberForMC
-    print(get_db(db_file))
     conn = sqlite3.connect(get_db(db_file))
 
     sql = '''select pos.SensorID, map.ElecID "ChannelID", Label "PmtID",
