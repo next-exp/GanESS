@@ -1,0 +1,28 @@
+# Kripton
+#/Generator/Kr83mGenerator/region  AD_HOC
+#
+/Generator/IonGenerator/region  AD_HOC
+/Generator/IonGenerator/atomic_number 26
+/Generator/IonGenerator/mass_number 55
+/Geometry/GaP/specific_vertex  0. 0. 46. mm
+
+
+### PHYSICS
+/PhysicsList/Nexus/clustering           true
+/PhysicsList/Nexus/drift                true
+/PhysicsList/Nexus/electroluminescence  true
+
+
+### VERBOSITY
+/control/verbose   0
+/run/verbose       0
+/event/verbose     0
+/tracking/verbose  0
+
+/process/em/verbose 0
+
+
+### CONTROL
+/nexus/random_seed            -1
+/nexus/persistency/start_id   0
+/nexus/persistency/outputFile GaP_3_1000_Fe55.h5
