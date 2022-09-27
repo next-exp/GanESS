@@ -33,7 +33,6 @@ from invisible_cities. dataflow   import                   dataflow as fl
 from invisible_cities.cities.components import                       city
 from invisible_cities.cities.components import                    collect
 from invisible_cities.cities.components import               copy_mc_info
-from invisible_cities.cities.components import        mcsensors_from_file
 from invisible_cities.cities.components import                print_every
 from invisible_cities.cities.components import                  wf_binner
 from invisible_cities.cities.components import             check_max_time
@@ -44,6 +43,7 @@ from .. detsim.sensor_utils    import        get_n_sensors
 from .. detsim.sensor_utils    import         sensor_order
 
 from .  components             import calculate_and_save_buffers
+from .  components             import mcsensors_from_file
 
 @city
 def adelma(files_in     , file_out   , compression      , event_range,

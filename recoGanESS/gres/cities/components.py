@@ -3,7 +3,7 @@ import math
 import numpy  as np
 import tables as tb
 
-from typing          import Callable
+from typing          import Callable, List, Generator
 
 
 
@@ -19,9 +19,12 @@ from invisible_cities.  cities.components      import get_pmt_wfs
 from invisible_cities.  cities.components      import get_trigger_info
 from invisible_cities.  cities.components      import check_lengths
 from invisible_cities.  cities.components      import compute_z_and_dt
+from invisible_cities.  cities.components      import create_timestamp
 
 from invisible_cities.      io.event_filter_io import event_filter_writer
 from invisible_cities.      io.pmaps_io        import pmap_writer
+from invisible_cities.      io                 import mcinfo_io
+
 from invisible_cities.  detsim.sensor_utils    import trigger_times
 from invisible_cities.   types.ic_types        import minmax
 from invisible_cities.    reco.xy_algorithms   import corona
@@ -265,3 +268,52 @@ def compute_xy_position(dbfile, run_number, **reco_params):
 def get_number_of_active_pmts(detector_db, run_number):
     datapmt = load_db.DataPMT(detector_db, run_number)
     return np.count_nonzero(datapmt.Active.values.astype(bool))
+
+
+def mcsensors_from_file(paths     : List[str],
+                        db_file   :      str ,
+                        run_number:      int ,
+                        rate      :    float ) -> Generator:
+    """
+    Loads the nexus MC sensor information into
+    a pandas DataFrame using the IC function
+    load_mcsensor_response_df.
+    Returns info event by event as a
+    generator in the structure expected by
+    the dataflow.
+    paths      : List of strings
+                 List of input file names to be read
+    db_file    : string
+                 Name of detector database to be used
+    run_number : int
+                 Run number for database
+    rate       : float
+                 Rate value in base unit (ns^-1) to generate timestamps
+    """
+
+    timestamp = create_timestamp(rate)
+
+    pmt_ids  = load_db.DataPMT(db_file, run_number).SensorID
+
+    for file_name in paths:
+        sns_resp = mcinfo_io.load_mcsensor_response_df(file_name              ,
+                                                       return_raw = False     ,
+                                                       db_file    = db_file   ,
+                                                       run_no     = run_number)
+
+        for evt in mcinfo_io.get_event_numbers_in_file(file_name):
+
+            try:
+                ## Assumes two types of sensor, all non pmt
+                ## assumed to be sipms. NEW, NEXT100 and DEMOPP safe
+                ## Flex with this structure too.
+                pmt_indx  = sns_resp.loc[evt].index.isin(pmt_ids)
+                pmt_resp  = sns_resp.loc[evt][ pmt_indx]
+                sipm_resp = sns_resp.loc[evt][~pmt_indx]
+            except KeyError:
+                pmt_resp = sipm_resp = pd.DataFrame(columns=sns_resp.columns)
+
+            yield dict(event_number = evt      ,
+                       timestamp    = timestamp(evt),
+                       pmt_resp     = pmt_resp ,
+                       sipm_resp    = sipm_resp)

@@ -7,7 +7,7 @@ from typing import Callable
 from typing import     List
 from typing import    Tuple
 
-from invisible_cities.database.load_db   import            DataPMT
+from               .. database.load_db   import DataPMT
 from invisible_cities.io      .mcinfo_io import get_sensor_binning
 
 def pmt_bin_width(file_name: str) -> float:
@@ -36,7 +36,7 @@ def sensor_order(detector_db: str, run_number : int, length_pmt : int) -> Callab
     Casts the event sensor info into the correct order
     adding zeros for sensors which didn't see any signal.
     """
-    pmt_ids    = DataPMT (detector_db, run_number).SensorID[:1] ### Patch until a proper database is done
+    pmt_ids    = DataPMT (detector_db, run_number).SensorID##[:1] ### Patch until a proper database is done
     n_pmt      = get_n_sensors(detector_db, run_number)
     pmt_shape  = (n_pmt , length_pmt )
 
@@ -57,5 +57,5 @@ def sensor_order(detector_db: str, run_number : int, length_pmt : int) -> Callab
 
 def get_n_sensors(detector_db: str, run_number: int) -> int:
     """Get the number of sensors for this run"""
-    npmt  = 1 #DataPMT (detector_db, run_number).shape[0]  ### Patch until a proper database is done
+    npmt  = DataPMT (detector_db, run_number).shape[0]  ### Patch until a proper database is done
     return npmt
