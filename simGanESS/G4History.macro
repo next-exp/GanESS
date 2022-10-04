@@ -42,20 +42,14 @@
 /vis/scene/notifyHandlers
 /vis/geometry/set/colour Gate 0 0.28 0.82 0.8 0.7
 /vis/scene/notifyHandlers
-/vis/geometry/set/colour CathodeRing 0 0.28 0.82 0.8 0.7
-/vis/scene/notifyHandlers
-/vis/geometry/set/colour AnodeRing 0 0.28 0.82 0.8 0.7
-/vis/scene/notifyHandlers
-/vis/geometry/set/colour GateRing 0 0.28 0.82 0.8 0.7
-/vis/scene/notifyHandlers
-/vis/geometry/set/colour CathodeSupport 0 1 1 0 0.2
-/vis/scene/notifyHandlers
-/vis/geometry/set/colour AnodeSupport 0 1 1 0 0.2
-/vis/scene/notifyHandlers
-/vis/geometry/set/colour GateSupport 0 1 1 0 0.2
-/vis/scene/notifyHandlers
 /tracking/storeTrajectory 2
 /vis/scene/add/trajectories smooth
 /tracking/storeTrajectory 2
 /vis/scene/notifyHandlers
 /vis/scene/endOfEventAction accumulate
+/vis/scene/add/axes 0 0 0 1 cm
+/vis/scene/notifyHandlers
+/vis/viewer/set/style w
+/vis/viewer/refresh
+/vis/viewer/set/hiddenEdge 0
+/vis/viewer/refresh
