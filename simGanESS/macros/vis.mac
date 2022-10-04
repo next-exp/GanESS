@@ -57,14 +57,6 @@
 /vis/geometry/set/colour Anode      0 0.28 0.82 0.8 0.7
 /vis/geometry/set/colour Gate       0 0.28 0.82 0.8 0.7
 
-/vis/geometry/set/colour CathodeRing    0 0.28 0.82 0.8 0.7
-/vis/geometry/set/colour AnodeRing      0 0.28 0.82 0.8 0.7
-/vis/geometry/set/colour GateRing       0 0.28 0.82 0.8 0.7
-
-/vis/geometry/set/colour CathodeSupport    0 1 1 0 0.2
-/vis/geometry/set/colour AnodeSupport      0 1 1 0 0.2
-/vis/geometry/set/colour GateSupport       0 1 1 0 0.2
-
 ### Drawing the tracks (if chosen in user actions)
 # Parameter (omittable) (default=0):
 # 0 : Don't Store trajectories. (if too many tracks cause core dump, use this option)

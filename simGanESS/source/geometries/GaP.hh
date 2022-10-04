@@ -26,7 +26,7 @@ class GaP : public GeometryBase
     private:
         void DefineConfigurationParameters();
         void Construct();
-        void BuildTPC(G4Material* gas, G4Material* cath_mat, G4Material* el_mat, G4Material* anode_mat, G4LogicalVolume* logic_vessel);
+        void BuildTPC(G4Material* gas, G4Material* mesh_mat, G4LogicalVolume* logic_vessel);
 
     private:
         G4GenericMessenger* msg_;
@@ -34,44 +34,19 @@ class GaP : public GeometryBase
         // Materials
         G4Material* gas_;
         G4Material* mesh_mat_;
-        G4Material* cath_mat_;
-        G4Material* gate_mat_;
-        G4Material* anode_mat_;
-
 
         // Vessel parameters
         G4double vessel_out_rad_   ;
         G4double vessel_out_length_;
         G4double vessel_rad_   ;
         G4double vessel_length_;
-        //G4double vessel_thickn_;
 
         // Meshes
         G4double mesh_rad_   ;
-        G4double mesh_length_;
-
         G4double mesh_thickn_;
-        G4double cath_thickn_;
-        G4double gate_thickn_;
-        G4double anode_thickn_;
-
         G4double mesh_transparency_;
-        G4double cath_transparency_;
-        G4double gate_transparency_;
-        G4double anode_transparency_;
 
         G4double photoe_prob_;
-
-        G4double ring_mesh_width_;
-        G4double ring_mesh_thickn_;
-
-        G4double support_mesh_rad_;
-        G4double support_mesh_width_;
-        G4double support_mesh_thickn_;
-
-        G4double support_anode_rad_;
-        G4double support_anode_width_;
-        G4double support_anode_thickn_;
 
         // Gas parameters
         G4double pressure_;

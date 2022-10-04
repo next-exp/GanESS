@@ -24,44 +24,17 @@ GaP::GaP():
     msg_ (nullptr),
     gas_ (nullptr),
     mesh_mat_ (nullptr),
-    cath_mat_ (nullptr),
-    gate_mat_ (nullptr),
-    anode_mat_(nullptr),
 
     vessel_out_rad_    (288./2  *mm),
-    vessel_out_length_ (46.6  *cm), //(10.  *cm),
-    vessel_rad_        (276./2  *mm), //(104./2  *mm),
+    vessel_out_length_ (46.6  *cm),
+    vessel_rad_        (276./2  *mm),
     vessel_length_     (38.8  *cm),
-    //vessel_thickn_   (0.6 *cm), //(0.5 *cm),
 
-
-    //full mesh (mesh + ring ) = 104./2  *mm
-    // only mesh = 100./2  *mm
-    mesh_rad_          (104./2  *mm), //(100./2  *mm),
-    mesh_length_       (10.  *cm),
-
+    mesh_rad_          (104./2  *mm),
     mesh_thickn_       (0.01  *mm),
-    cath_thickn_       (0.01  *mm),
-    gate_thickn_       (0.01  *mm),
-    anode_thickn_      (0.01  *mm),
-
     mesh_transparency_ (0.95),
-    cath_transparency_ (0.95),
-    gate_transparency_ (0.95),
-    anode_transparency_(0.95),
 
     photoe_prob_       (0.),
-
-    ring_mesh_width_   (2.  *mm),
-    ring_mesh_thickn_  (0.075  *mm),
-
-    support_mesh_rad_   (180./2  *mm),
-    support_mesh_width_   (38.  *mm),
-    support_mesh_thickn_  (6.  *mm),
-
-    support_anode_rad_     (160./2  *mm),
-    support_anode_width_   (30.  *mm),
-    support_anode_thickn_  (6.975  *mm),
 
     pressure_          (10.* bar),
     temperature_       (293. * kelvin),
@@ -97,42 +70,20 @@ GaP::~GaP()
 void GaP::Construct()
 {
     //Materials
-    //auto nistManager = G4NistManager::Instance(); // Nist manager to retrieve materials.
-    //auto air   = nistManager->FindOrBuildMaterial("G4_AIR");
     gas_   = materials::GXe(pressure_, temperature_);
     gas_->SetMaterialPropertiesTable(opticalprops::GXe(pressure_,
                                                       temperature_,
                                                       sc_yield_,
                                                       elifetime_));
-
-    auto steel = materials::Steel();
-    steel->SetMaterialPropertiesTable(new G4MaterialPropertiesTable());
-
-    // Meshes materials
+    // Mesh materials (cathode, anode and gate)
     mesh_mat_ = materials::FakeDielectric(gas_, "mesh_mat");
     mesh_mat_->SetMaterialPropertiesTable(opticalprops::FakeGrid(pressure_,
               temperature_, mesh_transparency_, mesh_thickn_,
               sc_yield_, elifetime_, photoe_prob_));
-    // Cathode material
-    cath_mat_ = materials::FakeDielectric(gas_, "cath_mat");
-    cath_mat_->SetMaterialPropertiesTable(opticalprops::FakeGrid(pressure_,
-              temperature_, cath_transparency_, cath_thickn_,
-              sc_yield_, elifetime_, photoe_prob_));
-    // Gate material
-    gate_mat_ = materials::FakeDielectric(gas_, "gate_mat");
-    gate_mat_->SetMaterialPropertiesTable(opticalprops::FakeGrid(pressure_,
-              temperature_, gate_transparency_, gate_thickn_,
-              sc_yield_, elifetime_, photoe_prob_));
-    // Anode material
-    anode_mat_ = materials::FakeDielectric(gas_, "anode_mat");
-    anode_mat_->SetMaterialPropertiesTable(opticalprops::FakeGrid(pressure_,
-              temperature_, anode_transparency_, anode_thickn_,
-              sc_yield_, elifetime_, photoe_prob_));
 
 
-    // PMMA == PolyMethylmethacrylate (cladding)
-    auto pmma = materials::PMMA();
-    pmma->SetMaterialPropertiesTable(new G4MaterialPropertiesTable());
+    auto steel = materials::Steel();
+    steel->SetMaterialPropertiesTable(new G4MaterialPropertiesTable());
 
     //Cylinder, acting as the vessel
     G4Tubs          *solid_vessel_steel = new G4Tubs("Vessel", 0, vessel_out_rad_, vessel_out_length_/2 , 0., 360.*deg);
@@ -140,7 +91,7 @@ void GaP::Construct()
     this->SetLogicalVolume(logic_vessel_steel);
 
     //Build inside detector
-    BuildTPC(gas_, cath_mat_, gate_mat_, anode_mat_, logic_vessel_steel);
+    BuildTPC(gas_, mesh_mat_, logic_vessel_steel);
 }
 
 G4ThreeVector GaP::GenerateVertex(const G4String& region) const
@@ -282,7 +233,7 @@ void GaP::DefineConfigurationParameters()
   msg_->DeclarePropertyWithUnit("specific_vertex", "mm",  specific_vertex_, "Set generation vertex.");
 }
 
-void GaP::BuildTPC(G4Material* gas, G4Material* cath_mat, G4Material* gate_mat, G4Material* anode_mat, G4LogicalVolume* logic_vessel_steel)
+void GaP::BuildTPC(G4Material* gas, G4Material* mesh_mat, G4LogicalVolume* logic_vessel_steel)
 {
     //Gas
     G4double drift_length_  = 19.825*mm;
@@ -291,38 +242,23 @@ void GaP::BuildTPC(G4Material* gas, G4Material* cath_mat, G4Material* gate_mat, 
     G4double buffer_        = 5     *mm; // Cap to cathode buffer
 
     G4Tubs          *solid_vessel = new G4Tubs("GasVessel", 0, vessel_rad_, vessel_length_/2 , 0., 360.*deg);
-    G4LogicalVolume *logic_vessel = new G4LogicalVolume(solid_vessel, gas_, "GasVessel");
+    G4LogicalVolume *logic_vessel = new G4LogicalVolume(solid_vessel, gas, "GasVessel");
     new G4PVPlacement(0, G4ThreeVector(), logic_vessel, "GasVessel", logic_vessel_steel, false, 0, true);
 
-
     //// Buffer
-    //G4Tubs *solid_gas_buffer = new G4Tubs("GasBuffer", 0., vessel_rad_, (buffer_)/2, 0., 360.*deg);
     G4Tubs *solid_gas_buffer = new G4Tubs("GasBuffer", 0., mesh_rad_, (buffer_)/2, 0., 360.*deg);
     G4LogicalVolume *logic_gas_buffer = new G4LogicalVolume(solid_gas_buffer, gas, "GasBuffer");
 
-    G4double buffer_z = (mesh_length_/2) - buffer_/2;
+    G4double buffer_z = buffer_/2 - mesh_thickn_/2;
     G4VPhysicalVolume* buffer_phys_ = new G4PVPlacement(0, G4ThreeVector(0., 0, buffer_z), logic_gas_buffer, "GasBuffer", logic_vessel, false, 0, true);
     buffer_gen_  = new CylinderPointSampler2020(buffer_phys_);
 
     //// Cathode
-    G4Tubs *solid_cathode = new G4Tubs("Cathode", 0., mesh_rad_, (cath_thickn_)/2, 0., 360.*deg);
-    G4LogicalVolume *logic_cathode = new G4LogicalVolume(solid_cathode, cath_mat, "Cathode");
+    G4Tubs *solid_cathode = new G4Tubs("Cathode", 0., mesh_rad_, (mesh_thickn_)/2, 0., 360.*deg);
+    G4LogicalVolume *logic_cathode = new G4LogicalVolume(solid_cathode, mesh_mat, "Cathode");
 
-    G4double cathode_z = - buffer_/2 + cath_thickn_/2;
+    G4double cathode_z = - buffer_z; //center of the volume
     new G4PVPlacement(0, G4ThreeVector(0., 0, cathode_z), logic_cathode, "Cathode", logic_gas_buffer, false, 0, true);
-
-    //Ring
-    G4Tubs *solid_cathode_ring = new G4Tubs("CathodeRing", mesh_rad_, mesh_rad_+ring_mesh_width_, (ring_mesh_thickn_)/2, 0., 360.*deg);
-    G4LogicalVolume *logic_cathode_ring = new G4LogicalVolume(solid_cathode_ring, cath_mat, "CathodeRing");
-
-    G4double cathode_support_z = buffer_z + cathode_z;
-    //new G4PVPlacement(0, G4ThreeVector(0., 0, cathode_support_z), logic_cathode_ring, "CathodeRing", logic_vessel, false, 0, true);
-
-    //Plastic Support
-    G4Tubs *solid_cathode_support = new G4Tubs("CathodeSupport", mesh_rad_+ring_mesh_width_, support_mesh_rad_, (support_mesh_thickn_)/2, 0., 360.*deg);
-    G4LogicalVolume *logic_cathode_support = new G4LogicalVolume(solid_cathode_support, cath_mat, "CathodeSupport");
-    //new G4PVPlacement(0, G4ThreeVector(0., 0, cathode_support_z), logic_cathode_support, "CathodeSupport", logic_vessel, false, 0, true);
-
 
     //// Drift
     G4Tubs *solid_gas_drift = new G4Tubs("GasDrift", 0., mesh_rad_, (drift_length_)/2, 0., 360.*deg);
@@ -358,23 +294,11 @@ void GaP::BuildTPC(G4Material* gas, G4Material* cath_mat, G4Material* gate_mat, 
     G4VPhysicalVolume* el_phys_ = new G4PVPlacement(0, G4ThreeVector(0., 0, el_z), logic_gas_el, "GasEL", logic_vessel, false, 0, true);
     el_gen_  = new CylinderPointSampler2020(el_phys_);
 
-    G4Tubs *solid_gate = new G4Tubs("Gate", 0., mesh_rad_, (gate_thickn_)/2, 0., 360.*deg);
-    G4LogicalVolume *logic_gate = new G4LogicalVolume(solid_gate, gate_mat, "Gate");
+    G4Tubs *solid_gate = new G4Tubs("Gate", 0., mesh_rad_, (mesh_thickn_)/2, 0., 360.*deg);
+    G4LogicalVolume *logic_gate = new G4LogicalVolume(solid_gate, mesh_mat, "Gate");
 
-    G4double gate_z = el_length_/2 - gate_thickn_/2;
+    G4double gate_z = el_length_/2 - mesh_thickn_/2;
     new G4PVPlacement(0, G4ThreeVector(0., 0, gate_z), logic_gate, "Gate", logic_gas_el, false, 0, true);
-
-    //Ring
-    G4Tubs *solid_gate_ring = new G4Tubs("GateRing", mesh_rad_, mesh_rad_+ring_mesh_width_, (ring_mesh_thickn_)/2, 0., 360.*deg);
-    G4LogicalVolume *logic_gate_ring = new G4LogicalVolume(solid_gate_ring, gate_mat, "GateRing");
-
-    G4double gate_support_z = el_z + gate_z;
-    //new G4PVPlacement(0, G4ThreeVector(0., 0, gate_support_z), logic_gate_ring, "GateRing", logic_vessel, false, 0, true);
-
-    //Plastic Support
-    G4Tubs *solid_gate_support = new G4Tubs("GateSupport", mesh_rad_+ring_mesh_width_, support_mesh_rad_, (support_mesh_thickn_)/2, 0., 360.*deg);
-    G4LogicalVolume *logic_gate_support = new G4LogicalVolume(solid_gate_support, gate_mat, "GateSupport");
-    //new G4PVPlacement(0, G4ThreeVector(0., 0, gate_support_z), logic_gate_support, "GateSupport", logic_vessel, false, 0, true);
 
     /// Define EL electric field
     G4double yield = XenonELLightYield(el_field_, gas->GetPressure());
@@ -390,23 +314,12 @@ void GaP::BuildTPC(G4Material* gas, G4Material* cath_mat, G4Material* gate_mat, 
     el_region->AddRootLogicalVolume(logic_gas_el);
 
     //// Anode
-    G4Tubs *solid_anode = new G4Tubs("Anode", 0., mesh_rad_, (anode_thickn_)/2, 0., 360.*deg);
-        G4LogicalVolume *logic_anode = new G4LogicalVolume(solid_anode, anode_mat, "Anode");
+    G4Tubs *solid_anode = new G4Tubs("Anode", 0., mesh_rad_, (mesh_thickn_)/2, 0., 360.*deg);
+    G4LogicalVolume *logic_anode = new G4LogicalVolume(solid_anode, mesh_mat, "Anode");
 
-    G4double anode_z = -el_length_/2 + mesh_thickn_/2;
+    G4double anode_z = - el_length_/2 + mesh_thickn_/2;
     new G4PVPlacement(0, G4ThreeVector(0., 0, anode_z), logic_anode, "Anode", logic_gas_el, false, 0, true);
 
-    //Ring
-    G4Tubs *solid_anode_ring = new G4Tubs("AnodeRing", mesh_rad_, mesh_rad_+ring_mesh_width_, (ring_mesh_thickn_)/2, 0., 360.*deg);
-    G4LogicalVolume *logic_anode_ring = new G4LogicalVolume(solid_anode_ring, anode_mat, "AnodeRing");
-
-    G4double anode_support_z = el_z + anode_z;
-    //new G4PVPlacement(0, G4ThreeVector(0., 0, anode_support_z), logic_anode_ring, "AnodeRing", logic_vessel, false, 0, true);
-
-    //Plastic Support
-    G4Tubs *solid_anode_support = new G4Tubs("AnodeSupport", mesh_rad_+ring_mesh_width_, support_anode_rad_, (support_anode_thickn_)/2, 0., 360.*deg);
-    G4LogicalVolume *logic_anode_support = new G4LogicalVolume(solid_anode_support, anode_mat, "AnodeSupport");
-    //new G4PVPlacement(0, G4ThreeVector(0., 0, anode_support_z), logic_anode_support, "AnodeSupport", logic_vessel, false, 0, true);
 
     G4cout << "* GATE Z position: " << el_z + gate_z << G4endl;
     G4cout << "* GATE Volt position: " << el_z + el_length_/2. << G4endl;
@@ -462,10 +375,6 @@ void GaP::BuildTPC(G4Material* gas, G4Material* cath_mat, G4Material* gate_mat, 
     new G4PVPlacement(0, pmt6_Ps,
 		              logic_pmt, "PMT",
 		              logic_vessel, false, 6, true);
-
-
-
-
 
 
 }
