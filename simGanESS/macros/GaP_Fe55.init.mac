@@ -15,10 +15,10 @@
 /nexus/RegisterTrackingAction DefaultTrackingAction
 
 ### GEOMETRY
-/nexus/RegisterGeometry GaP1
+/nexus/RegisterGeometry GaP
 
 ### GENERATOR
 /nexus/RegisterGenerator IonGenerator
 
 ### EXTRA CONFIGURATION
-/nexus/RegisterMacro macros/GaP1_Fe55.config.mac
+/nexus/RegisterMacro macros/GaP_Fe55.config.mac

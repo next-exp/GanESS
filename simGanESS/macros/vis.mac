@@ -8,7 +8,7 @@
 /control/verbose 2
 /control/saveHistory
 /run/verbose 2
-/tracking/verbose 0
+/tracking/verbose 2
 
 ### Create an empty scene and a scene handles (OpenGL)
 #/vis/scene/create
@@ -52,6 +52,7 @@
 #/vis/geometry/set/colour GasDrift   0 0.3 0.1 0.1 0.5
 #/vis/geometry/set/colour GasEL      0 0.1 0.5 0.1 0.5
 /vis/geometry/set/colour Vessel     0 0.2 0.2 0.3 0.3
+/vis/geometry/set/colour GasVessel  0 0.1 0.2 0.3 0.4
 /vis/geometry/set/colour Cathode    0 0.28 0.82 0.8 0.7
 /vis/geometry/set/colour Anode      0 0.28 0.82 0.8 0.7
 /vis/geometry/set/colour Gate       0 0.28 0.82 0.8 0.7

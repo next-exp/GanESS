@@ -1,0 +1,45 @@
+# Kripton
+#/Generator/Kr83mGenerator/region  AD_HOC
+/Geometry/GaP/specific_vertex  0. 0. -45. mm
+/Generator/Kr83mGenerator/region  GasDrift
+
+# Gas properties
+/Geometry/GaP/pressure 15. bar
+/Geometry/GaP/temperature 293. kelvin
+/Geometry/GaP/sc_yield 22222. 1/MeV
+
+# Drift properties
+/Geometry/GaP/elifetime 1000. ms
+/Geometry/GaP/drift_vel .1 cm/us
+/Geometry/GaP/drift_transv_diff 1. mm/sqrt(cm)
+/Geometry/GaP/drift_long_diff  .3 mm/sqrt(cm)
+
+# EL properties
+/Geometry/GaP/el_vel .1 cm/us
+/Geometry/GaP/el_transv_diff 1. mm/sqrt(cm)
+/Geometry/GaP/el_long_diff .3 mm/sqrt(cm)
+/Geometry/GaP/el_field 22 kilovolt/cm
+
+# Mesh properties
+/Geometry/GaP/photoe_prob 0.
+
+
+### PHYSICS
+/PhysicsList/Nexus/clustering           true
+/PhysicsList/Nexus/drift                true
+/PhysicsList/Nexus/electroluminescence  true
+
+
+### VERBOSITY
+/control/verbose   0
+/run/verbose       0
+/event/verbose     0
+/tracking/verbose  0
+
+/process/em/verbose 0
+
+
+### CONTROL
+/nexus/random_seed            -1
+/nexus/persistency/start_id   0
+/nexus/persistency/outputFile GaP_test.gap

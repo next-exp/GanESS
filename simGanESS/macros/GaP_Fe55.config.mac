@@ -4,7 +4,7 @@
 /Generator/IonGenerator/region  AD_HOC
 /Generator/IonGenerator/atomic_number 26
 /Generator/IonGenerator/mass_number 55
-/Geometry/GaP1/specific_vertex  0. 0. 46. mm
+/Geometry/GaP/specific_vertex  0. 0. 46. mm
 
 
 ### PHYSICS
@@ -25,4 +25,4 @@
 ### CONTROL
 /nexus/random_seed            -1
 /nexus/persistency/start_id   0
-/nexus/persistency/outputFile GaP1_3_1000_Fe55.h5
+/nexus/persistency/outputFile GaP_3_1000_Fe55.h5

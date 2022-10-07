@@ -15,10 +15,10 @@
 /nexus/RegisterTrackingAction DefaultTrackingAction
 
 ### GEOMETRY
-/nexus/RegisterGeometry GaP1
+/nexus/RegisterGeometry GaP
 
 ### GENERATOR
 /nexus/RegisterGenerator Kr83mGenerator
 
 ### EXTRA CONFIGURATION
-/nexus/RegisterMacro macros/GaP1_Kr.config.mac
+/nexus/RegisterMacro macros/GaP_Kr.config.mac
