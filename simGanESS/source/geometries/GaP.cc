@@ -14,6 +14,9 @@
 #include "nexus/XenonProperties.h"
 #include "nexus/IonizationSD.h"
 
+#include "G4NistManager.hh"
+
+
 
 using namespace nexus;
 
@@ -26,13 +29,25 @@ GaP::GaP():
     mesh_mat_ (nullptr),
 
     vessel_out_rad_    (288./2  *mm),
-    vessel_out_length_ (46.6  *cm),
+    vessel_out_length_ (46.6    *cm),
     vessel_rad_        (276./2  *mm),
-    vessel_length_     (38.8  *cm),
+    vessel_length_     (38.8    *cm),
 
     mesh_rad_          (104./2  *mm),
-    mesh_thickn_       (0.01  *mm),
+    mesh_thickn_       (0.075    *mm),
     mesh_transparency_ (0.95),
+
+    meshBracket_rad_      (180./2  *mm),
+    meshBracket_thickn_   (6.      *mm),
+    anodeBracket_rad_     (160./2  *mm),
+    anodeBracket_thickn_  (6.975   *mm),
+
+    pmt_cover_rad_      (115./2  *mm),
+    pmt_cover_thickn_   (7.5     *mm),
+    pmt_cover_length_   (147.3   *mm),
+
+    pmt_coverBottom_rad_     (109./2 *mm),
+    pmt_coverBottom_length_  (14     *mm),
 
     photoe_prob_       (0.),
 
@@ -60,7 +75,6 @@ GaP::~GaP()
 {
   delete msg_;
 
-  delete buffer_gen_;
   delete drift_gen_;
   delete gas_pmt_gen_;
   delete el_gen_;
@@ -82,16 +96,18 @@ void GaP::Construct()
               sc_yield_, elifetime_, photoe_prob_));
 
 
-    auto steel = materials::Steel();
-    steel->SetMaterialPropertiesTable(new G4MaterialPropertiesTable());
+    steel_ = materials::Steel();
+    steel_->SetMaterialPropertiesTable(new G4MaterialPropertiesTable());
+
+    vacuum_ = G4NistManager::Instance()->FindOrBuildMaterial("G4_Galactic");
 
     //Cylinder, acting as the vessel
     G4Tubs          *solid_vessel_steel = new G4Tubs("Vessel", 0, vessel_out_rad_, vessel_out_length_/2 , 0., 360.*deg);
-    G4LogicalVolume *logic_vessel_steel = new G4LogicalVolume(solid_vessel_steel, steel, "Vessel");
+    G4LogicalVolume *logic_vessel_steel = new G4LogicalVolume(solid_vessel_steel, steel_, "Vessel");
     this->SetLogicalVolume(logic_vessel_steel);
 
     //Build inside detector
-    BuildTPC(gas_, mesh_mat_, logic_vessel_steel);
+    BuildTPC(gas_, mesh_mat_, steel_, vacuum_, logic_vessel_steel);
 }
 
 G4ThreeVector GaP::GenerateVertex(const G4String& region) const
@@ -124,7 +140,6 @@ G4ThreeVector GaP::GenerateVertexGas(const G4String& region) const
     G4ThreeVector vertex;
 
     if     (region == "GasEL")     {vertex = el_gen_->GenerateVertex("VOLUME");}
-    else if(region == "GasBuffer") {vertex = buffer_gen_->GenerateVertex("VOLUME");}
     else if(region == "GasDrift")  {vertex = drift_gen_->GenerateVertex("VOLUME");}
     else if(region == "GasPMT")    {vertex = gas_pmt_gen_->GenerateVertex("VOLUME");}
     else{G4Exception("[GaP]", "GenerateVertex()", FatalException,
@@ -233,38 +248,33 @@ void GaP::DefineConfigurationParameters()
   msg_->DeclarePropertyWithUnit("specific_vertex", "mm",  specific_vertex_, "Set generation vertex.");
 }
 
-void GaP::BuildTPC(G4Material* gas, G4Material* mesh_mat, G4LogicalVolume* logic_vessel_steel)
+void GaP::BuildTPC(G4Material* gas, G4Material* mesh_mat, G4Material* steel, G4Material* vacuum, G4LogicalVolume* logic_vessel_steel)
 {
     //Gas
-    G4double drift_length_  = 19.825*mm;
-    G4double el_length_     = 10.775*mm;
-    G4double pmt_gap_       = 23.2  *mm;
-    G4double buffer_        = 5     *mm; // Cap to cathode buffer
+    G4double drift_length_  = 19.825*mm - mesh_thickn_ ;
+    G4double el_length_     = 10.775*mm + mesh_thickn_;
+    G4double pmt_gap_       = 7.4*mm ;
 
     G4Tubs          *solid_vessel = new G4Tubs("GasVessel", 0, vessel_rad_, vessel_length_/2 , 0., 360.*deg);
     G4LogicalVolume *logic_vessel = new G4LogicalVolume(solid_vessel, gas, "GasVessel");
     new G4PVPlacement(0, G4ThreeVector(), logic_vessel, "GasVessel", logic_vessel_steel, false, 0, true);
 
-    //// Buffer
-    G4Tubs *solid_gas_buffer = new G4Tubs("GasBuffer", 0., mesh_rad_, (buffer_)/2, 0., 360.*deg);
-    G4LogicalVolume *logic_gas_buffer = new G4LogicalVolume(solid_gas_buffer, gas, "GasBuffer");
-
-    G4double buffer_z = buffer_/2 - mesh_thickn_/2;
-    G4VPhysicalVolume* buffer_phys_ = new G4PVPlacement(0, G4ThreeVector(0., 0, buffer_z), logic_gas_buffer, "GasBuffer", logic_vessel, false, 0, true);
-    buffer_gen_  = new CylinderPointSampler2020(buffer_phys_);
-
     //// Cathode
     G4Tubs *solid_cathode = new G4Tubs("Cathode", 0., mesh_rad_, (mesh_thickn_)/2, 0., 360.*deg);
     G4LogicalVolume *logic_cathode = new G4LogicalVolume(solid_cathode, mesh_mat, "Cathode");
+    G4double cathode_dz = 5.4*mm - mesh_thickn_/2;  //cathode center from vessel center
+    new G4PVPlacement(0, G4ThreeVector(0., 0, cathode_dz), logic_cathode, "Cathode", logic_vessel, false, 0, true);
 
-    G4double cathode_z = - buffer_z; //center of the volume
-    new G4PVPlacement(0, G4ThreeVector(0., 0, cathode_z), logic_cathode, "Cathode", logic_gas_buffer, false, 0, true);
+    //Cathode Bracket
+    G4Tubs *solid_cathBracket = new G4Tubs("CathodeBracket", mesh_rad_, meshBracket_rad_, (meshBracket_thickn_)/2, 0., 360.*deg);
+    G4LogicalVolume *logic_cathBracket = new G4LogicalVolume(solid_cathBracket, steel, "CathodeBracket");
+    new G4PVPlacement(0, G4ThreeVector(0., 0, cathode_dz), logic_cathBracket, "CathodeBracket", logic_vessel, false, 0, true);
 
     //// Drift
     G4Tubs *solid_gas_drift = new G4Tubs("GasDrift", 0., mesh_rad_, (drift_length_)/2, 0., 360.*deg);
     G4LogicalVolume *logic_gas_drift = new G4LogicalVolume(solid_gas_drift, gas, "GasDrift");
 
-    G4double drift_z = buffer_z - buffer_/2 - drift_length_/2;
+    G4double drift_z = cathode_dz - mesh_thickn_/2 - drift_length_/2;
     G4VPhysicalVolume* drift_phys_ = new G4PVPlacement(0, G4ThreeVector(0., 0, drift_z), logic_gas_drift, "GasDrift", logic_vessel, false, 0, true);
     drift_gen_  = new CylinderPointSampler2020(drift_phys_);
 
@@ -300,6 +310,12 @@ void GaP::BuildTPC(G4Material* gas, G4Material* mesh_mat, G4LogicalVolume* logic
     G4double gate_z = el_length_/2 - mesh_thickn_/2;
     new G4PVPlacement(0, G4ThreeVector(0., 0, gate_z), logic_gate, "Gate", logic_gas_el, false, 0, true);
 
+    //Gate Bracket
+    G4Tubs *solid_gateBracket = new G4Tubs("GateBracket", mesh_rad_, meshBracket_rad_, (meshBracket_thickn_)/2, 0., 360.*deg);
+    G4LogicalVolume *logic_gateBracket = new G4LogicalVolume(solid_gateBracket, steel, "GateBracket");
+    G4double gateBracket_z = el_z + gate_z;
+    new G4PVPlacement(0, G4ThreeVector(0.,0.,gateBracket_z), logic_gateBracket, "GateBracket", logic_vessel, false, 0, true);
+
     /// Define EL electric field
     G4double yield = XenonELLightYield(el_field_, gas->GetPressure());
     UniformElectricDriftField* el_field = new UniformElectricDriftField();
@@ -318,8 +334,13 @@ void GaP::BuildTPC(G4Material* gas, G4Material* mesh_mat, G4LogicalVolume* logic
     G4LogicalVolume *logic_anode = new G4LogicalVolume(solid_anode, mesh_mat, "Anode");
 
     G4double anode_z = - el_length_/2 + mesh_thickn_/2;
-    new G4PVPlacement(0, G4ThreeVector(0., 0, anode_z), logic_anode, "Anode", logic_gas_el, false, 0, true);
+    new G4PVPlacement(0, G4ThreeVector(0., 0., anode_z), logic_anode, "Anode", logic_gas_el, false, 0, true);
 
+    //Anode Bracket
+    G4Tubs *solid_anodeBracket = new G4Tubs("AnodeBracket", mesh_rad_, anodeBracket_rad_, (anodeBracket_thickn_)/2, 0., 360.*deg);
+    G4LogicalVolume *logic_anodeBracket = new G4LogicalVolume(solid_anodeBracket, steel, "AnodeBracket");
+    G4double anodeBracket_z = el_z + anode_z;
+    new G4PVPlacement(0, G4ThreeVector(0., 0., anodeBracket_z), logic_anodeBracket, "AnodeBracket", logic_vessel, false, 0, true);
 
     G4cout << "* GATE Z position: " << el_z + gate_z << G4endl;
     G4cout << "* GATE Volt position: " << el_z + el_length_/2. << G4endl;
@@ -340,11 +361,27 @@ void GaP::BuildTPC(G4Material* gas, G4Material* mesh_mat, G4LogicalVolume* logic
     G4VPhysicalVolume* gas_pmt_phys_ = new G4PVPlacement(0, G4ThreeVector(0., 0, pmt_gap_z), logic_gas_pmt, "GasPMT", logic_vessel, false, 0, true);
     gas_pmt_gen_  = new CylinderPointSampler2020(gas_pmt_phys_);
 
+    //// PMT cover
+    G4Tubs *solid_coverBottom_pmt = new G4Tubs("CoverBottomPMT", 0., pmt_coverBottom_rad_, pmt_coverBottom_length_/2, 0., 360.*deg);
+    G4LogicalVolume *logic_coverBottom_pmt = new G4LogicalVolume(solid_coverBottom_pmt, steel, "CoverBottomPMT");
+    G4double pmt_coverBottom_z = -(vessel_length_/2 - pmt_cover_length_ - pmt_coverBottom_length_/2);
+    new G4PVPlacement(0, G4ThreeVector(0., 0, pmt_coverBottom_z), logic_coverBottom_pmt, "CoverBottomPMT", logic_vessel, false, 0, true);
+
+    G4Tubs *solid_cover_pmt = new G4Tubs("CoverPMT", 0, pmt_cover_rad_+pmt_cover_thickn_ , (pmt_cover_length_)/2, 0., 360.*deg);
+    G4LogicalVolume *logic_cover_pmt = new G4LogicalVolume(solid_cover_pmt, steel, "CoverPMT");
+    G4double pmt_cover_z = -(vessel_length_/2 - pmt_cover_length_/2);
+    new G4PVPlacement(0, G4ThreeVector(0., 0, pmt_cover_z), logic_cover_pmt, "CoverPMT", logic_vessel, false, 0, true);
+
+    G4Tubs *solid_coverVac_pmt = new G4Tubs("CoverVacPMT", 0, pmt_cover_rad_, (pmt_cover_length_)/2, 0., 360.*deg);
+    G4LogicalVolume *logic_coverVac_pmt = new G4LogicalVolume(solid_coverVac_pmt, vacuum, "CoverVacPMT");
+    new G4PVPlacement(0, G4ThreeVector(), logic_coverVac_pmt, "CoverVacPMT", logic_cover_pmt, false, 0, true);
+
     //Build PMT
     pmt_.Construct();
     G4LogicalVolume* logic_pmt = pmt_.GetLogicalVolume();
     G4double pmt_length_ = pmt_.Length();
-    G4double pmt_z       = pmt_gap_z - pmt_gap_/2 - pmt_length_/2;
+    G4double pmt_dz = 1.8*mm; //displacement from the steel cover base to the pmt base
+    G4double pmt_z  = pmt_cover_length_/2 - pmt_length_/2 - pmt_dz;
 
     G4ThreeVector pmt0_Ps = G4ThreeVector(-15.573*mm,-32.871*mm,pmt_z);
     G4ThreeVector pmt1_Ps = G4ThreeVector(20.68*mm,-29.922*mm,pmt_z);
@@ -356,25 +393,25 @@ void GaP::BuildTPC(G4Material* gas, G4Material* mesh_mat, G4LogicalVolume* logic
 
     new G4PVPlacement(0, pmt0_Ps,
 		              logic_pmt, "PMT",
-		              logic_vessel, false, 0, true);
+		              logic_coverVac_pmt, false, 0, true);
     new G4PVPlacement(0, pmt1_Ps,
                   logic_pmt, "PMT",
-                  logic_vessel, false, 1, true);
+                  logic_coverVac_pmt, false, 1, true);
     new G4PVPlacement(0, pmt2_Ps,
                   logic_pmt, "PMT",
-                  logic_vessel, false, 2, true);
+                  logic_coverVac_pmt, false, 2, true);
     new G4PVPlacement(0, pmt3_Ps,
 		              logic_pmt, "PMT",
-		              logic_vessel, false, 3, true);
+		              logic_coverVac_pmt, false, 3, true);
     new G4PVPlacement(0, pmt4_Ps,
 		              logic_pmt, "PMT",
-		              logic_vessel, false, 4, true);
+		              logic_coverVac_pmt, false, 4, true);
     new G4PVPlacement(0, pmt5_Ps,
 		              logic_pmt, "PMT",
-		              logic_vessel, false, 5, true);
+		              logic_coverVac_pmt, false, 5, true);
     new G4PVPlacement(0, pmt6_Ps,
 		              logic_pmt, "PMT",
-		              logic_vessel, false, 6, true);
+		              logic_coverVac_pmt, false, 6, true);
 
 
 }

@@ -49,13 +49,23 @@
 /vis/geometry/set/colour GasPMT     0 0.9 0.9 0.9 0.5
 /vis/geometry/set/colour GasDrift   0 0.9 0.9 0.9 0.5
 /vis/geometry/set/colour GasEL      0 0.9 0.9 0.9 0.5
-#/vis/geometry/set/colour GasDrift   0 0.3 0.1 0.1 0.5
-#/vis/geometry/set/colour GasEL      0 0.1 0.5 0.1 0.5
+#/vis/geometry/set/colour GasDrift  0 0.3 0.1 0.1 0.5
+#/vis/geometry/set/colour GasEL     0 0.1 0.5 0.1 0.5
 /vis/geometry/set/colour Vessel     0 0.2 0.2 0.3 0.3
 /vis/geometry/set/colour GasVessel  0 0.1 0.2 0.3 0.4
 /vis/geometry/set/colour Cathode    0 0.28 0.82 0.8 0.7
 /vis/geometry/set/colour Anode      0 0.28 0.82 0.8 0.7
 /vis/geometry/set/colour Gate       0 0.28 0.82 0.8 0.7
+
+/vis/geometry/set/colour CathodeBracket  0 1 1 1 0.2
+/vis/geometry/set/colour GateBracket     0 1 1 1 0.2
+/vis/geometry/set/colour AnodeBracket    0 1 1 1 0.2
+
+/vis/geometry/set/colour CoverVacPMT     0 0.1 0.2 0.3 0.2
+/vis/geometry/set/colour CoverPMT        0 0.2 0.2 0.3 0.3
+/vis/geometry/set/colour CoverBottomPMT  0 0.2 0.2 0.3 0.3
+
+
 
 ### Drawing the tracks (if chosen in user actions)
 # Parameter (omittable) (default=0):
