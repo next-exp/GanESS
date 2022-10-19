@@ -26,7 +26,7 @@ class GaP : public GeometryBase
     private:
         void DefineConfigurationParameters();
         void Construct();
-        void BuildTPC(G4Material* gas, G4Material* mesh_mat, G4Material* steel, G4Material* vacuum, G4LogicalVolume* logic_vessel);
+        void BuildTPC(G4Material* gas, G4Material* mesh_mat, G4Material* steel, G4Material* pmma, G4Material* vacuum, G4LogicalVolume* logic_vessel);
 
     private:
         G4GenericMessenger* msg_;
@@ -35,6 +35,7 @@ class GaP : public GeometryBase
         G4Material* gas_;
         G4Material* mesh_mat_;
         G4Material* steel_;
+        G4Material* pmma_;
         G4Material* vacuum_;
 
         // Vessel parameters
@@ -54,13 +55,13 @@ class GaP : public GeometryBase
         G4double anodeBracket_rad_   ;
         G4double anodeBracket_thickn_   ;
 
-        // Pmt Cover
-        G4double pmt_cover_rad_   ;
-        G4double pmt_cover_thickn_;
-        G4double pmt_cover_length_;
+        // Pmt clad
+        G4double pmt_clad_rad_   ;
+        G4double pmt_clad_thickn_;
+        G4double pmt_clad_length_;
 
-        G4double pmt_coverBottom_rad_;
-        G4double pmt_coverBottom_length_;
+        G4double pmt_cladBottom_rad_;
+        G4double pmt_cladBottom_length_;
 
         G4double photoe_prob_;
 
