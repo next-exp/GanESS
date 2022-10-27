@@ -2,6 +2,7 @@ import math
 
 import numpy  as np
 import tables as tb
+import pandas as pd
 
 from typing          import Callable, List, Generator
 
