@@ -3,6 +3,7 @@
 export RGANESS=$PWD
 export GRESDIR=$PWD/gres
 export PATH=$RGANESS/bin:$PATH
-export PATH=$(tr ":" "\n" <<<"$PATH" | grep -Fxv "$ICTDIR/bin" | paste -sd:)
+export AUXPATH=$(tr ":" "\n" <<<"$PATH" | grep -Fxv "$ICTDIR/bin")
+export PATH=$(tr "\n" ":" <<< "$AUXPATH")
 export PYTHONPATH=$RGANESS:$PYTHONPATH
 
