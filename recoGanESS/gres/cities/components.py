@@ -242,11 +242,11 @@ def build_pointlike_event(dbfile, run_number, drift_v, reco):
                 Z, DT = compute_z_and_dt(evt.S2t[-1], evt.S1t, drift_v)
                 Zrms  = peak.rms / units.mus
 
-            evt.X    .append(c.X - pmt_xs[0]) ### Patch, to be changed once we have a proper DB 
-            evt.Y    .append(c.Y - pmt_ys[0]) ### Patch, to be changed once we have a proper DB 
+            evt.X    .append(c.X)  
+            evt.Y    .append(c.Y)  
             evt.Xrms .append(c.Xrms)
             evt.Yrms .append(c.Yrms)
-            evt.R    .append(c.R - np.sqrt(pmt_xs[0]**2 + pmt_ys[0]**2)) ### Patch, to be changed once we have a proper DB 
+            evt.R    .append(c.R)
             evt.Phi  .append(c.Phi)
             evt.DT   .append(DT)
             evt.Z    .append(Z)
@@ -260,10 +260,10 @@ def build_pointlike_event(dbfile, run_number, drift_v, reco):
 def compute_xy_position(dbfile, run_number, **reco_params):
     # `reco_params` is the set of parameters for the corona
     # algorithm either for the full corona or for barycenter
-    datasipm = load_db.DataPMT(dbfile, run_number)
+    datapmt = load_db.DataPMT(dbfile, run_number)
 
     def compute_xy_position(xys, qs):
-        return corona(xys, qs, datasipm, **reco_params)
+        return corona(xys, qs, datapmt, **reco_params)
     return compute_xy_position
 
 def get_number_of_active_pmts(detector_db, run_number):
@@ -305,16 +305,11 @@ def mcsensors_from_file(paths     : List[str],
         for evt in mcinfo_io.get_event_numbers_in_file(file_name):
 
             try:
-                ## Assumes two types of sensor, all non pmt
-                ## assumed to be sipms. NEW, NEXT100 and DEMOPP safe
-                ## Flex with this structure too.
                 pmt_indx  = sns_resp.loc[evt].index.isin(pmt_ids)
                 pmt_resp  = sns_resp.loc[evt][ pmt_indx]
-                sipm_resp = sns_resp.loc[evt][~pmt_indx]
             except KeyError:
-                pmt_resp = sipm_resp = pd.DataFrame(columns=sns_resp.columns)
+                pmt_resp  = pd.DataFrame(columns=sns_resp.columns)
 
             yield dict(event_number = evt      ,
                        timestamp    = timestamp(evt),
-                       pmt_resp     = pmt_resp ,
-                       sipm_resp    = sipm_resp)
+                       pmt_resp     = pmt_resp)
