@@ -65,7 +65,7 @@
 /vis/geometry/set/colour EnclosurePMT    0 0.2 0.2 0.3 0.3
 /vis/geometry/set/colour PMTplateBottom  0 0.2 0.2 0.3 0.3
 /vis/geometry/set/colour PMTplateUp      0 0.2 0.2 0.3 0.3
-/vis/geometry/set/colour PMTHolder      0 0.2 0.2 0.3 0.3
+/vis/geometry/set/colour PMTHolder       0 0.2 0.2 0.3 0.3
 
 
 /vis/geometry/set/colour MeshHolder     0 1 1 1 1
