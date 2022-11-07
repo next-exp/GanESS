@@ -26,7 +26,7 @@ class GaP : public GeometryBase
     private:
         void DefineConfigurationParameters();
         void Construct();
-        void BuildTPC(G4Material* gas, G4Material* mesh_mat, G4LogicalVolume* logic_vessel);
+        void BuildTPC(G4Material* gas, G4Material* mesh_mat, G4Material* steel, G4Material* peek, G4Material* vacuum, G4Material* quartz, G4Material* tpb, G4LogicalVolume* logic_vessel);
 
     private:
         G4GenericMessenger* msg_;
@@ -34,6 +34,11 @@ class GaP : public GeometryBase
         // Materials
         G4Material* gas_;
         G4Material* mesh_mat_;
+        G4Material* steel_;
+        G4Material* peek_;
+        G4Material* vacuum_;
+        G4Material* quartz_;
+        G4Material* tpb_;
 
         // Vessel parameters
         G4double vessel_out_rad_   ;
@@ -41,10 +46,36 @@ class GaP : public GeometryBase
         G4double vessel_rad_   ;
         G4double vessel_length_;
 
-        // Meshes
+        // Mesh
         G4double mesh_rad_   ;
         G4double mesh_thickn_;
         G4double mesh_transparency_;
+
+        // Mesh Bracket
+        G4double meshBracket_rad_;
+        G4double meshBracket_thickn_ ;
+        G4double anodeBracket_rad_ ;
+        G4double anodeBracket_thickn_ ;
+
+        // Pmt enclosure
+        G4double enclosure_pmt_rad_   ;
+        G4double enclosure_pmt_thickn_;
+        G4double enclosure_pmt_length_;
+        G4double enclosurevac_pmt_length_;
+
+        G4double plate_pmt_rad_;
+        G4double plate_pmt_thickn_;
+        G4double plate_pmt_length_;
+        G4double plateUp_pmt_length_;
+        G4double plateUp_pmt_thickn_;
+
+        G4double pmtHolder_rad_;
+        G4double pmtHolder_length_;
+
+        //Quartz window with tpb
+        G4double quartz_window_rad_;
+        G4double quartz_window_thickn_;
+        G4double tpb_coating_thickn_;
 
         G4double photoe_prob_;
 
@@ -69,10 +100,9 @@ class GaP : public GeometryBase
         // Vertex generation
         G4ThreeVector specific_vertex_;
 
-        CylinderPointSampler2020* buffer_gen_;
         CylinderPointSampler2020* drift_gen_;
         CylinderPointSampler2020* el_gen_;
-        CylinderPointSampler2020* gas_pmt_gen_;
+
 
 };
 

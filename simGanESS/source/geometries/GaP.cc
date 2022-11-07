@@ -1,6 +1,11 @@
 #include "GaP.hh"
 
+#include <G4Box.hh>
 #include <G4Tubs.hh>
+#include <G4SubtractionSolid.hh>
+#include <G4UnionSolid.hh>
+#include <G4OpticalSurface.hh>
+#include <G4LogicalSkinSurface.hh>
 #include "G4LogicalVolume.hh"
 #include "G4NistManager.hh"
 #include "G4PVPlacement.hh"
@@ -14,6 +19,9 @@
 #include "nexus/XenonProperties.h"
 #include "nexus/IonizationSD.h"
 
+#include <iostream>
+#include <cmath>
+
 
 using namespace nexus;
 
@@ -26,13 +34,36 @@ GaP::GaP():
     mesh_mat_ (nullptr),
 
     vessel_out_rad_    (288./2  *mm),
-    vessel_out_length_ (46.6  *cm),
+    vessel_out_length_ (46.679  *cm),
     vessel_rad_        (276./2  *mm),
-    vessel_length_     (38.8  *cm),
+    vessel_length_     (38.599  *cm), // Adjusted length so that the gas volume is centered. Original length (38.639  *cm),
 
     mesh_rad_          (104./2  *mm),
-    mesh_thickn_       (0.01  *mm),
+    mesh_thickn_       (0.075   *mm),
     mesh_transparency_ (0.95),
+
+    meshBracket_rad_      (180./2  *mm),
+    meshBracket_thickn_   (6.      *mm),
+    anodeBracket_rad_     (160./2  *mm),
+    anodeBracket_thickn_  (6.975   *mm),
+
+    enclosure_pmt_rad_        (120./2  *mm),
+    enclosure_pmt_thickn_     (8.5     *mm),
+    enclosure_pmt_length_     (113.5   *mm),
+    enclosurevac_pmt_length_  (110.5   *mm),
+
+    plate_pmt_rad_        (105./2  *mm),
+    plate_pmt_thickn_     (105./2  *mm),
+    plate_pmt_length_     (10      *mm),
+    plateUp_pmt_length_   (15      *mm),
+    plateUp_pmt_thickn_   (21.5    *mm),
+
+    pmtHolder_rad_        (115./2  *mm),
+    pmtHolder_length_     (9.      *mm),
+
+    quartz_window_rad_    (108./2  *mm),
+    quartz_window_thickn_ (3       *mm),
+    tpb_coating_thickn_   (3       *micrometer),
 
     photoe_prob_       (0.),
 
@@ -60,9 +91,7 @@ GaP::~GaP()
 {
   delete msg_;
 
-  delete buffer_gen_;
   delete drift_gen_;
-  delete gas_pmt_gen_;
   delete el_gen_;
 
 }
@@ -81,17 +110,30 @@ void GaP::Construct()
               temperature_, mesh_transparency_, mesh_thickn_,
               sc_yield_, elifetime_, photoe_prob_));
 
+    steel_ = materials::Steel();
+    steel_->SetMaterialPropertiesTable(new G4MaterialPropertiesTable());
 
-    auto steel = materials::Steel();
-    steel->SetMaterialPropertiesTable(new G4MaterialPropertiesTable());
+    //PEEK for the holders
+    peek_ = materials::PEEK();
+    peek_->SetMaterialPropertiesTable(new G4MaterialPropertiesTable());
+
+    // quartz (SiO2, crystalline) with evaporated TPB
+    quartz_ = materials::FusedSilica();
+    quartz_->SetMaterialPropertiesTable(opticalprops::FusedSilica());
+
+    tpb_ = materials::TPB();
+    tpb_->SetMaterialPropertiesTable(opticalprops::TPB());
+
+    vacuum_ = G4NistManager::Instance()->FindOrBuildMaterial("G4_Galactic");
+
 
     //Cylinder, acting as the vessel
     G4Tubs          *solid_vessel_steel = new G4Tubs("Vessel", 0, vessel_out_rad_, vessel_out_length_/2 , 0., 360.*deg);
-    G4LogicalVolume *logic_vessel_steel = new G4LogicalVolume(solid_vessel_steel, steel, "Vessel");
+    G4LogicalVolume *logic_vessel_steel = new G4LogicalVolume(solid_vessel_steel, steel_, "Vessel");
     this->SetLogicalVolume(logic_vessel_steel);
 
     //Build inside detector
-    BuildTPC(gas_, mesh_mat_, logic_vessel_steel);
+    BuildTPC(gas_, mesh_mat_, steel_, peek_, vacuum_, quartz_, tpb_, logic_vessel_steel);
 }
 
 G4ThreeVector GaP::GenerateVertex(const G4String& region) const
@@ -104,10 +146,8 @@ G4ThreeVector GaP::GenerateVertex(const G4String& region) const
 
   //// Gas regions
   else if (
-    (region == "GasPMT") ||
     (region == "GasEL") ||
-    (region == "GasDrift") ||
-    (region == "GasBuffer")) {
+    (region == "GasDrift")) {
     vertex = GenerateVertexGas(region);
   }
 
@@ -124,9 +164,7 @@ G4ThreeVector GaP::GenerateVertexGas(const G4String& region) const
     G4ThreeVector vertex;
 
     if     (region == "GasEL")     {vertex = el_gen_->GenerateVertex("VOLUME");}
-    else if(region == "GasBuffer") {vertex = buffer_gen_->GenerateVertex("VOLUME");}
     else if(region == "GasDrift")  {vertex = drift_gen_->GenerateVertex("VOLUME");}
-    else if(region == "GasPMT")    {vertex = gas_pmt_gen_->GenerateVertex("VOLUME");}
     else{G4Exception("[GaP]", "GenerateVertex()", FatalException,
                 "Unknown vertex generation region!");}
     return vertex;
@@ -233,39 +271,34 @@ void GaP::DefineConfigurationParameters()
   msg_->DeclarePropertyWithUnit("specific_vertex", "mm",  specific_vertex_, "Set generation vertex.");
 }
 
-void GaP::BuildTPC(G4Material* gas, G4Material* mesh_mat, G4LogicalVolume* logic_vessel_steel)
+void GaP::BuildTPC(G4Material* gas, G4Material* mesh_mat, G4Material* steel, G4Material* peek, G4Material* vacuum, G4Material* quartz, G4Material* tpb, G4LogicalVolume* logic_vessel_steel)
 {
     //Gas
-    G4double drift_length_  = 19.825*mm;
-    G4double el_length_     = 10.775*mm;
-    G4double pmt_gap_       = 23.2  *mm;
-    G4double buffer_        = 5     *mm; // Cap to cathode buffer
+    G4double drift_length_  = 19.825*mm - mesh_thickn_ ;
+    G4double el_length_     = 10.775*mm + mesh_thickn_;
 
     G4Tubs          *solid_vessel = new G4Tubs("GasVessel", 0, vessel_rad_, vessel_length_/2 , 0., 360.*deg);
     G4LogicalVolume *logic_vessel = new G4LogicalVolume(solid_vessel, gas, "GasVessel");
     new G4PVPlacement(0, G4ThreeVector(), logic_vessel, "GasVessel", logic_vessel_steel, false, 0, true);
 
-    //// Buffer
-    G4Tubs *solid_gas_buffer = new G4Tubs("GasBuffer", 0., mesh_rad_, (buffer_)/2, 0., 360.*deg);
-    G4LogicalVolume *logic_gas_buffer = new G4LogicalVolume(solid_gas_buffer, gas, "GasBuffer");
-
-    G4double buffer_z = buffer_/2 - mesh_thickn_/2;
-    G4VPhysicalVolume* buffer_phys_ = new G4PVPlacement(0, G4ThreeVector(0., 0, buffer_z), logic_gas_buffer, "GasBuffer", logic_vessel, false, 0, true);
-    buffer_gen_  = new CylinderPointSampler2020(buffer_phys_);
-
     //// Cathode
-    G4Tubs *solid_cathode = new G4Tubs("Cathode", 0., mesh_rad_, (mesh_thickn_)/2, 0., 360.*deg);
+    G4Tubs          *solid_cathode = new G4Tubs("Cathode", 0., mesh_rad_, (mesh_thickn_)/2, 0., 360.*deg);
     G4LogicalVolume *logic_cathode = new G4LogicalVolume(solid_cathode, mesh_mat, "Cathode");
+    G4double cathode_z = 4.505*mm + mesh_thickn_/2;  //cathode center from vessel center
+    new G4PVPlacement(0, G4ThreeVector(0., 0., cathode_z), logic_cathode, "Cathode", logic_vessel, false, 0, true);
 
-    G4double cathode_z = - buffer_z; //center of the volume
-    new G4PVPlacement(0, G4ThreeVector(0., 0, cathode_z), logic_cathode, "Cathode", logic_gas_buffer, false, 0, true);
+    // Cathode Bracket
+    G4Tubs          *solid_cathBracket = new G4Tubs("CathodeBracket", mesh_rad_, meshBracket_rad_, (meshBracket_thickn_)/2, 0., 360.*deg);
+    G4LogicalVolume *logic_cathBracket = new G4LogicalVolume(solid_cathBracket, steel, "CathodeBracket");
+    G4double cathBracket_z = 8.005*mm - meshBracket_thickn_/2;
+    new G4PVPlacement(0, G4ThreeVector(0., 0., cathBracket_z), logic_cathBracket, "CathodeBracket", logic_vessel, false, 0, true);
 
     //// Drift
-    G4Tubs *solid_gas_drift = new G4Tubs("GasDrift", 0., mesh_rad_, (drift_length_)/2, 0., 360.*deg);
+    G4Tubs          *solid_gas_drift = new G4Tubs("GasDrift", 0., mesh_rad_, (drift_length_)/2, 0., 360.*deg);
     G4LogicalVolume *logic_gas_drift = new G4LogicalVolume(solid_gas_drift, gas, "GasDrift");
 
-    G4double drift_z = buffer_z - buffer_/2 - drift_length_/2;
-    G4VPhysicalVolume* drift_phys_ = new G4PVPlacement(0, G4ThreeVector(0., 0, drift_z), logic_gas_drift, "GasDrift", logic_vessel, false, 0, true);
+    G4double drift_z = cathode_z - mesh_thickn_/2 - drift_length_/2;
+    G4VPhysicalVolume* drift_phys_ = new G4PVPlacement(0, G4ThreeVector(0., 0., drift_z), logic_gas_drift, "GasDrift", logic_vessel, false, 0, true);
     drift_gen_  = new CylinderPointSampler2020(drift_phys_);
 
     // Define the drift field
@@ -287,18 +320,74 @@ void GaP::BuildTPC(G4Material* gas, G4Material* mesh_mat, G4LogicalVolume* logic
     G4SDManager::GetSDMpointer()->AddNewDetector(active_sd);
 
     //// EL gap
-    G4Tubs *solid_gas_el = new G4Tubs("GasEL", 0., mesh_rad_, (el_length_)/2, 0., 360.*deg);
+    G4Tubs          *solid_gas_el = new G4Tubs("GasEL", 0., mesh_rad_, (el_length_)/2, 0., 360.*deg);
     G4LogicalVolume *logic_gas_el = new G4LogicalVolume(solid_gas_el, gas, "GasEL");
 
     G4double el_z = drift_z - drift_length_/2 - el_length_/2;
-    G4VPhysicalVolume* el_phys_ = new G4PVPlacement(0, G4ThreeVector(0., 0, el_z), logic_gas_el, "GasEL", logic_vessel, false, 0, true);
+    G4VPhysicalVolume* el_phys_ = new G4PVPlacement(0, G4ThreeVector(0., 0., el_z), logic_gas_el, "GasEL", logic_vessel, false, 0, true);
     el_gen_  = new CylinderPointSampler2020(el_phys_);
 
-    G4Tubs *solid_gate = new G4Tubs("Gate", 0., mesh_rad_, (mesh_thickn_)/2, 0., 360.*deg);
+    //// Gate
+    G4Tubs          *solid_gate = new G4Tubs("Gate", 0., mesh_rad_, (mesh_thickn_)/2, 0., 360.*deg);
     G4LogicalVolume *logic_gate = new G4LogicalVolume(solid_gate, mesh_mat, "Gate");
 
     G4double gate_z = el_length_/2 - mesh_thickn_/2;
-    new G4PVPlacement(0, G4ThreeVector(0., 0, gate_z), logic_gate, "Gate", logic_gas_el, false, 0, true);
+    new G4PVPlacement(0, G4ThreeVector(0., 0., gate_z), logic_gate, "Gate", logic_gas_el, false, 0, true);
+
+    // Gate Bracket
+    G4Tubs          *solid_gateBracket = new G4Tubs("GateBracket", mesh_rad_, meshBracket_rad_, (meshBracket_thickn_)/2, 0., 360.*deg);
+    G4LogicalVolume *logic_gateBracket = new G4LogicalVolume(solid_gateBracket, steel, "GateBracket");
+
+    G4double gateBracket_z = 12.745*mm + meshBracket_thickn_/2;
+    new G4PVPlacement(0, G4ThreeVector(0., 0., -gateBracket_z), logic_gateBracket, "GateBracket", logic_vessel, false, 0, true);
+
+    /// Peek Mesh Holder (holds cathode and gate)
+    G4double meshHolder_length_    = 36.75     *mm;
+    G4double meshHolder_width_     = 21.035    *mm;
+    G4double meshHolder_thickn_    = 24        *mm;
+
+    G4double meshHolder_hole_length_   = 15.75  *mm;
+    G4double meshHolder_holeUp_length_ = 6      *mm;
+    G4double meshHolder_hole_thickn_   = 11.667 *mm;
+
+    G4Box *solid_meshHolder_block = new G4Box("MeshHolder", meshHolder_width_/2, meshHolder_thickn_/2 , meshHolder_length_/2);
+    G4Box *solid_meshHolder_hole = new G4Box("MeshHolderHole", meshHolder_width_, meshHolder_hole_thickn_ , meshHolder_hole_length_/2);
+    G4Box *solid_meshHolder_holeUp = new G4Box("MeshHolderHole", meshHolder_width_, meshHolder_hole_thickn_ , meshHolder_holeUp_length_/2);
+    G4VSolid        *solidSub_meshHolder0 = new G4SubtractionSolid("MeshHolderHole", solid_meshHolder_block, solid_meshHolder_hole, 0, G4ThreeVector(0., meshHolder_thickn_/2, meshHolder_length_/2-meshHolder_hole_length_/2-5*mm) );
+    G4VSolid        *solidSub_meshHolder = new G4SubtractionSolid("MeshHolderHole", solidSub_meshHolder0, solid_meshHolder_holeUp, 0, G4ThreeVector(0., meshHolder_thickn_/2, -(meshHolder_length_/2-meshHolder_holeUp_length_/2-5*mm)) );
+    G4LogicalVolume *logic_meshHolder = new G4LogicalVolume(solidSub_meshHolder, peek, "MeshHolder");
+
+    G4double meshHolder_x = 5*mm + meshBracket_rad_ * cos(45*deg);
+    G4double meshHolder_y = 5*mm + meshBracket_rad_ * sin(45*deg);
+    G4double meshHolder_z = -13.005*mm + meshHolder_length_/2 ;
+
+    G4RotationMatrix* Rot45 = new G4RotationMatrix();
+    Rot45->rotateZ(45*deg);
+    G4RotationMatrix* Rot_45 = new G4RotationMatrix();
+    Rot_45->rotateZ(-45*deg);
+    G4RotationMatrix* Rot135 = new G4RotationMatrix();
+    Rot135->rotateZ(135*deg);
+    G4RotationMatrix* Rot_135 = new G4RotationMatrix();
+    Rot_135->rotateZ(-135*deg);
+
+    new G4PVPlacement(Rot45,   G4ThreeVector(-meshHolder_x, -meshHolder_y, -meshHolder_z), logic_meshHolder, "MeshHolder", logic_vessel, false, 0, true);
+    new G4PVPlacement(Rot135,  G4ThreeVector(-meshHolder_x, meshHolder_y, -meshHolder_z), logic_meshHolder, "MeshHolder", logic_vessel, false, 1, true);
+    new G4PVPlacement(Rot_45,  G4ThreeVector(meshHolder_x, -meshHolder_y, -meshHolder_z), logic_meshHolder, "MeshHolder", logic_vessel, false, 2, true);
+    new G4PVPlacement(Rot_135, G4ThreeVector(meshHolder_x, meshHolder_y, -meshHolder_z), logic_meshHolder, "MeshHolder", logic_vessel, false, 3, true);
+
+    //Steel Bar joining Mesh holder and PMT clad
+    G4double meshHolderBar_rad_     = 9./2   *mm;
+    G4double meshHolderBar_length_  = 35.75  *mm;
+
+    G4Tubs          *solid_meshHolderBar = new G4Tubs("MeshHolderBar", 0., meshHolderBar_rad_, (meshHolderBar_length_)/2, 0., 360.*deg);
+    G4LogicalVolume *logic_meshHolderBar = new G4LogicalVolume(solid_meshHolderBar, steel, "MeshHolderBar");
+
+    G4double meshHolderBar_xy = 73.769*mm;
+    G4double meshHolderBar_z  = meshHolder_z + meshHolder_length_/2 + meshHolderBar_length_/2 ;
+    new G4PVPlacement(0, G4ThreeVector(meshHolderBar_xy, meshHolderBar_xy, -meshHolderBar_z), logic_meshHolderBar, "MeshHolderBar", logic_vessel, false, 0, true);
+    new G4PVPlacement(0, G4ThreeVector(-meshHolderBar_xy, meshHolderBar_xy, -meshHolderBar_z), logic_meshHolderBar, "MeshHolderBar", logic_vessel, false, 1, true);
+    new G4PVPlacement(0, G4ThreeVector(meshHolderBar_xy, -meshHolderBar_xy, -meshHolderBar_z), logic_meshHolderBar, "MeshHolderBar", logic_vessel, false, 2, true);
+    new G4PVPlacement(0, G4ThreeVector(-meshHolderBar_xy, -meshHolderBar_xy, -meshHolderBar_z), logic_meshHolderBar, "MeshHolderBar", logic_vessel, false, 3, true);
 
     /// Define EL electric field
     G4double yield = XenonELLightYield(el_field_, gas->GetPressure());
@@ -314,12 +403,40 @@ void GaP::BuildTPC(G4Material* gas, G4Material* mesh_mat, G4LogicalVolume* logic
     el_region->AddRootLogicalVolume(logic_gas_el);
 
     //// Anode
-    G4Tubs *solid_anode = new G4Tubs("Anode", 0., mesh_rad_, (mesh_thickn_)/2, 0., 360.*deg);
+    G4Tubs          *solid_anode = new G4Tubs("Anode", 0., mesh_rad_, (mesh_thickn_)/2, 0., 360.*deg);
     G4LogicalVolume *logic_anode = new G4LogicalVolume(solid_anode, mesh_mat, "Anode");
 
     G4double anode_z = - el_length_/2 + mesh_thickn_/2;
-    new G4PVPlacement(0, G4ThreeVector(0., 0, anode_z), logic_anode, "Anode", logic_gas_el, false, 0, true);
+    new G4PVPlacement(0, G4ThreeVector(0., 0., anode_z), logic_anode, "Anode", logic_gas_el, false, 0, true);
 
+    // Anode Bracket
+    G4Tubs          *solid_anodeBracket = new G4Tubs("AnodeBracket", mesh_rad_, anodeBracket_rad_, (anodeBracket_thickn_)/2, 0., 360.*deg);
+    G4LogicalVolume *logic_anodeBracket = new G4LogicalVolume(solid_anodeBracket, steel, "AnodeBracket");
+
+    G4double anodeBracket_z = gateBracket_z + meshBracket_thickn_/2 + 3.775*mm + anodeBracket_thickn_/2;
+    new G4PVPlacement(0, G4ThreeVector(0., 0., -anodeBracket_z), logic_anodeBracket, "AnodeBracket", logic_vessel, false, 0, true);
+
+    // Peek Anode Holder
+    G4double anodeHolder_length_  = 30        *mm;
+    G4double anodeHolder_rad_     = 145.001/2 *mm;
+    G4double anodeHolder_thickn_  = 17.       *mm;
+    G4double anodeHolder_angle_   = 7.964     *deg;
+
+    G4double anodeHolder_hole_length_ = 20    *mm;
+    G4double anodeHolder_hole_rad_    = anodeHolder_rad_ + 8*mm;
+    G4double anodeHolder_hole_thickn_ = 10    *mm;
+    G4double anodeHolder_hole_angle_  = 7.965 *deg;
+
+    G4Tubs *solid_anodeHolder_block = new G4Tubs("AnodeHolder", anodeHolder_rad_, anodeHolder_rad_+anodeHolder_thickn_, anodeHolder_length_/2, -anodeHolder_angle_/2, anodeHolder_angle_);
+    G4Tubs *solid_anodeHolder_hole = new G4Tubs("AnodeHolderHole", anodeHolder_hole_rad_, anodeHolder_hole_rad_+anodeHolder_hole_thickn_, anodeHolder_hole_length_/2, -anodeHolder_hole_angle_/2, anodeHolder_hole_angle_);
+    G4VSolid        *solidSub_anodeHolder = new G4SubtractionSolid("AnodeHolderHole", solid_anodeHolder_block, solid_anodeHolder_hole, 0, G4ThreeVector(0,0,anodeHolder_length_/2-anodeHolder_hole_length_/2) );
+    G4LogicalVolume *logic_anodeHolder = new G4LogicalVolume(solidSub_anodeHolder, peek, "AnodeHolder");
+
+    G4double anodeHolder_z = 29.495*mm + anodeHolder_length_/2;
+    new G4PVPlacement(Rot45,   G4ThreeVector(0., 0., -anodeHolder_z), logic_anodeHolder, "AnodeHolder", logic_vessel, false, 0, true);
+    new G4PVPlacement(Rot135,  G4ThreeVector(0., .0, -anodeHolder_z), logic_anodeHolder, "AnodeHolder", logic_vessel, false, 1, true);
+    new G4PVPlacement(Rot_45,  G4ThreeVector(0., 0., -anodeHolder_z), logic_anodeHolder, "AnodeHolder", logic_vessel, false, 2, true);
+    new G4PVPlacement(Rot_135, G4ThreeVector(0., 0., -anodeHolder_z), logic_anodeHolder, "AnodeHolder", logic_vessel, false, 3, true);
 
     G4cout << "* GATE Z position: " << el_z + gate_z << G4endl;
     G4cout << "* GATE Volt position: " << el_z + el_length_/2. << G4endl;
@@ -332,49 +449,173 @@ void GaP::BuildTPC(G4Material* gas, G4Material* mesh_mat, G4LogicalVolume* logic
             << "  ->  EL Light yield (photons/ie-/cm): " << yield / (1/cm) << G4endl;
     G4cout << "* EL Light yield (photons/ie-): " << yield * el_length_ << G4endl;
 
-    //// PMT gap
-    G4Tubs *solid_gas_pmt = new G4Tubs("GasPMT", 0., mesh_rad_, (pmt_gap_)/2, 0., 360.*deg);
-    G4LogicalVolume *logic_gas_pmt = new G4LogicalVolume(solid_gas_pmt, gas, "GasPMT");
+    //// Quartz Window
+    G4Tubs          *solid_quartz_window = new G4Tubs("QuartzWindow", 0, quartz_window_rad_, quartz_window_thickn_/2, 0, 360*deg);
+    G4LogicalVolume *logic_quartz_window = new G4LogicalVolume(solid_quartz_window, quartz, "QuartzWindow");
 
-    G4double pmt_gap_z = el_z - el_length_/2 - pmt_gap_/2;
-    G4VPhysicalVolume* gas_pmt_phys_ = new G4PVPlacement(0, G4ThreeVector(0., 0, pmt_gap_z), logic_gas_pmt, "GasPMT", logic_vessel, false, 0, true);
-    gas_pmt_gen_  = new CylinderPointSampler2020(gas_pmt_phys_);
+    G4double quartz_window_z = 35.495*mm + quartz_window_thickn_/2 ;
+    new G4PVPlacement(0, G4ThreeVector(0., 0., -quartz_window_z ), logic_quartz_window, "QuartzWindow", logic_vessel, false, 0, true);
 
-    //Build PMT
+    /// Evaporated TPB
+    G4Tubs          *solid_tpb_coating = new G4Tubs("CoatingTPB", 0, quartz_window_rad_, tpb_coating_thickn_/2, 0, 360*deg);
+    G4LogicalVolume *logic_tpb_coating = new G4LogicalVolume(solid_tpb_coating, tpb, "CoatingTPB");
+
+    G4double tpb_coating_z = quartz_window_z + quartz_window_thickn_/2 + tpb_coating_thickn_/2 ;
+    new G4PVPlacement(0, G4ThreeVector(0., 0., -tpb_coating_z ), logic_tpb_coating, "CoatingTPB", logic_vessel, false, 0, true);
+
+    // Optical surface between gas and TPB to model the latter's roughness
+    G4OpticalSurface* tpb_coating_surf =
+      new G4OpticalSurface("TPB_COATING_OPSURF", glisur, ground,
+                           dielectric_dielectric, .01);
+    new G4LogicalSkinSurface("TPB_COATING_OPSURF", logic_tpb_coating, tpb_coating_surf);
+
+    // Peek Quartz Window Holder
+    G4double windowHolder_angle_   = 10      *deg;
+    G4double windowHolder_length1_ = 4.       *mm;
+    G4double windowHolder_length2_ = 19.      *mm;
+    G4double windowHolder_length3_ = 5.       *mm;
+    G4double windowHolder_rad0_    = 100.4/2  *mm;
+    G4double windowHolder_rad1_    = 118.4/2  *mm;
+    G4double windowHolder_rad2_    = 122.4/2  *mm;
+    G4double windowHolder_rad3_    = 140.4/2  *mm;
+
+    G4double windowHolder_block2_z = windowHolder_length1_/2 + windowHolder_length2_/2 ;
+    G4double windowHolder_block3_z = windowHolder_length3_/2 + windowHolder_length2_/2 + windowHolder_block2_z ;
+
+    G4Tubs *solid_windowHolder_block1 = new G4Tubs("QuartzWindowHolder", windowHolder_rad0_, windowHolder_rad2_, windowHolder_length1_/2, -windowHolder_angle_/2, windowHolder_angle_);
+    G4Tubs *solid_windowHolder_block2 = new G4Tubs("QuartzWindowHolder", windowHolder_rad1_, windowHolder_rad2_, windowHolder_length2_/2, -windowHolder_angle_/2, windowHolder_angle_);
+    G4Tubs *solid_windowHolder_block3 = new G4Tubs("QuartzWindowHolder", windowHolder_rad1_, windowHolder_rad3_, windowHolder_length3_/2, -windowHolder_angle_/2, windowHolder_angle_);
+    G4VSolid        *solidUni_windowHolder0 = new G4UnionSolid("WindowHolderUnion", solid_windowHolder_block1, solid_windowHolder_block2, 0, G4ThreeVector(0,0,-windowHolder_block2_z) );
+    G4VSolid        *solidUni_windowHolder = new G4UnionSolid("WindowHolderUnion", solidUni_windowHolder0, solid_windowHolder_block3, 0, G4ThreeVector(0,0,-windowHolder_block3_z) );
+    G4LogicalVolume *logic_windowHolder = new G4LogicalVolume(solidUni_windowHolder, peek, "QuartzWindowHolder");
+
+    G4double quartz_windowHolder_z = quartz_window_z - quartz_window_thickn_/2 -  windowHolder_length1_/2;
+    new G4PVPlacement(Rot45,   G4ThreeVector(0., 0., -quartz_windowHolder_z), logic_windowHolder, "QuartzWindowHolder", logic_vessel, false, 0, true);
+    new G4PVPlacement(Rot135,  G4ThreeVector(0., 0., -quartz_windowHolder_z), logic_windowHolder, "QuartzWindowHolder", logic_vessel, false, 1, true);
+    new G4PVPlacement(Rot_45,  G4ThreeVector(0., 0., -quartz_windowHolder_z), logic_windowHolder, "QuartzWindowHolder", logic_vessel, false, 2, true);
+    new G4PVPlacement(Rot_135, G4ThreeVector(0., 0., -quartz_windowHolder_z), logic_windowHolder, "QuartzWindowHolder", logic_vessel, false, 3, true);
+
+    G4double windowHolderTop_length1_ = 3.  *mm;
+    G4double windowHolderTop_length2_ = 4.  *mm;
+    G4double windowHolderTop_rad0_    = windowHolder_rad0_ ;
+    G4double windowHolderTop_rad1_    = windowHolderTop_rad0_ + 4.*mm ;
+    G4double windowHolderTop_rad2_    = windowHolder_rad1_ ;
+
+    G4double windowHolderTop_block2_z = windowHolderTop_length1_/2 + windowHolderTop_length2_/2 ;
+
+    G4Tubs *solid_windowHolderTop_block1 = new G4Tubs("QuartzWindowHolderTop", windowHolderTop_rad1_, windowHolderTop_rad2_, windowHolderTop_length1_/2, -windowHolder_angle_/2, windowHolder_angle_);
+    G4Tubs *solid_windowHolderTop_block2 = new G4Tubs("QuartzWindowHolderTop", windowHolderTop_rad0_, windowHolderTop_rad2_, windowHolderTop_length2_/2, -windowHolder_angle_/2, windowHolder_angle_);
+    G4VSolid        *solidUni_windowHolderTop = new G4UnionSolid("WindowHolderTopUnion", solid_windowHolderTop_block1, solid_windowHolderTop_block2, 0, G4ThreeVector(0,0,-windowHolderTop_block2_z) );
+    G4LogicalVolume *logic_windowHolderTop = new G4LogicalVolume(solidUni_windowHolderTop, peek, "QuartzWindowHolderTop");
+
+    G4double quartz_windowHolderTop_z = quartz_window_z - quartz_window_thickn_/2 +  windowHolderTop_length1_/2;
+    new G4PVPlacement(Rot45,   G4ThreeVector(0., 0., -quartz_windowHolderTop_z), logic_windowHolderTop, "QuartzWindowHolderTop", logic_vessel, false, 0, true);
+    new G4PVPlacement(Rot135,  G4ThreeVector(0., 0., -quartz_windowHolderTop_z), logic_windowHolderTop, "QuartzWindowHolderTop", logic_vessel, false, 1, true);
+    new G4PVPlacement(Rot_45,  G4ThreeVector(0., 0., -quartz_windowHolderTop_z), logic_windowHolderTop, "QuartzWindowHolderTop", logic_vessel, false, 2, true);
+    new G4PVPlacement(Rot_135, G4ThreeVector(0., 0., -quartz_windowHolderTop_z), logic_windowHolderTop, "QuartzWindowHolderTop", logic_vessel, false, 3, true);
+
+    /// Build PMT
     pmt_.Construct();
     G4LogicalVolume* logic_pmt = pmt_.GetLogicalVolume();
     G4double pmt_length_ = pmt_.Length();
-    G4double pmt_z       = pmt_gap_z - pmt_gap_/2 - pmt_length_/2;
+    G4double pmt_z  = 42.495*mm + pmt_length_/2;
 
-    G4ThreeVector pmt0_Ps = G4ThreeVector(-15.573*mm,-32.871*mm,pmt_z);
-    G4ThreeVector pmt1_Ps = G4ThreeVector(20.68*mm,-29.922*mm,pmt_z);
-    G4ThreeVector pmt2_Ps = G4ThreeVector(-36.253*mm,-2.949*mm,pmt_z);
-    G4ThreeVector pmt3_Ps = G4ThreeVector(0,0,pmt_z);
-    G4ThreeVector pmt4_Ps = G4ThreeVector(36.253*mm,2.949*mm,pmt_z);
-    G4ThreeVector pmt5_Ps = G4ThreeVector(-20.68*mm,29.922*mm,pmt_z);
-    G4ThreeVector pmt6_Ps = G4ThreeVector(15.573*mm,32.871*mm,pmt_z);
+    G4ThreeVector pmt0_Ps = G4ThreeVector(-15.573*mm, -32.871*mm, -pmt_z);
+    G4ThreeVector pmt1_Ps = G4ThreeVector(20.68*mm,   -29.922*mm, -pmt_z);
+    G4ThreeVector pmt2_Ps = G4ThreeVector(-36.253*mm, -2.949*mm,  -pmt_z);
+    G4ThreeVector pmt3_Ps = G4ThreeVector(0.,         0.,         -pmt_z);
+    G4ThreeVector pmt4_Ps = G4ThreeVector(36.253*mm,  2.949*mm,   -pmt_z);
+    G4ThreeVector pmt5_Ps = G4ThreeVector(-20.68*mm,  29.922*mm,  -pmt_z);
+    G4ThreeVector pmt6_Ps = G4ThreeVector(15.573*mm,  32.871*mm,  -pmt_z);
 
-    new G4PVPlacement(0, pmt0_Ps,
-		              logic_pmt, "PMT",
-		              logic_vessel, false, 0, true);
-    new G4PVPlacement(0, pmt1_Ps,
-                  logic_pmt, "PMT",
-                  logic_vessel, false, 1, true);
-    new G4PVPlacement(0, pmt2_Ps,
-                  logic_pmt, "PMT",
-                  logic_vessel, false, 2, true);
-    new G4PVPlacement(0, pmt3_Ps,
-		              logic_pmt, "PMT",
-		              logic_vessel, false, 3, true);
-    new G4PVPlacement(0, pmt4_Ps,
-		              logic_pmt, "PMT",
-		              logic_vessel, false, 4, true);
-    new G4PVPlacement(0, pmt5_Ps,
-		              logic_pmt, "PMT",
-		              logic_vessel, false, 5, true);
-    new G4PVPlacement(0, pmt6_Ps,
-		              logic_pmt, "PMT",
-		              logic_vessel, false, 6, true);
+    new G4PVPlacement(0, pmt0_Ps, logic_pmt, "PMT", logic_vessel, false, 0, true);
+    new G4PVPlacement(0, pmt1_Ps, logic_pmt, "PMT", logic_vessel, false, 1, true);
+    new G4PVPlacement(0, pmt2_Ps, logic_pmt, "PMT", logic_vessel, false, 2, true);
+    new G4PVPlacement(0, pmt3_Ps, logic_pmt, "PMT", logic_vessel, false, 3, true);
+    new G4PVPlacement(0, pmt4_Ps, logic_pmt, "PMT", logic_vessel, false, 4, true);
+    new G4PVPlacement(0, pmt5_Ps, logic_pmt, "PMT", logic_vessel, false, 5, true);
+    new G4PVPlacement(0, pmt6_Ps, logic_pmt, "PMT", logic_vessel, false, 6, true);
 
+    // PMT clad
+    G4double enclosure_pmt_z = vessel_length_/2 - enclosure_pmt_length_/2;
+    G4double relative_pmt_z  = enclosure_pmt_z - pmt_z;
+
+    G4Tubs *solid_pmt = new G4Tubs("SolidPMT", 0., 25.4*mm/2, 43.*mm/2, 0., 360.*deg); // Hamamatsu pmt length: 43*mm | STEP pmt gap length: 57.5*mm
+
+    G4Tubs *solid_enclosure_pmt = new G4Tubs("EnclosurePMT", 0, enclosure_pmt_rad_+ enclosure_pmt_thickn_ , (enclosure_pmt_length_)/2, 0., 360.*deg);
+    G4VSolid *solidSub_enclosure_pmt0  = new G4SubtractionSolid("EnclosurePMT", solid_enclosure_pmt, solid_pmt,     0,G4ThreeVector(-15.573*mm, -32.871*mm, relative_pmt_z));
+    G4VSolid *solidSub_enclosure_pmt1  = new G4SubtractionSolid("EnclosurePMT", solidSub_enclosure_pmt0, solid_pmt, 0,G4ThreeVector(20.68*mm,   -29.922*mm, relative_pmt_z));
+    G4VSolid *solidSub_enclosure_pmt2  = new G4SubtractionSolid("EnclosurePMT", solidSub_enclosure_pmt1, solid_pmt, 0,G4ThreeVector(-36.253*mm, -2.949*mm,  relative_pmt_z));
+    G4VSolid *solidSub_enclosure_pmt3  = new G4SubtractionSolid("EnclosurePMT", solidSub_enclosure_pmt2, solid_pmt, 0,G4ThreeVector(0.,          0.,        relative_pmt_z));
+    G4VSolid *solidSub_enclosure_pmt4  = new G4SubtractionSolid("EnclosurePMT", solidSub_enclosure_pmt3, solid_pmt, 0,G4ThreeVector(36.253*mm,   2.949*mm,  relative_pmt_z));
+    G4VSolid *solidSub_enclosure_pmt5  = new G4SubtractionSolid("EnclosurePMT", solidSub_enclosure_pmt4, solid_pmt, 0,G4ThreeVector(-20.68*mm,   29.922*mm, relative_pmt_z));
+    G4VSolid *solidSub_enclosure_pmt6  = new G4SubtractionSolid("EnclosurePMT", solidSub_enclosure_pmt5, solid_pmt, 0,G4ThreeVector(15.573*mm,   32.871*mm, relative_pmt_z));
+
+    G4LogicalVolume *logic_enclosure_pmt = new G4LogicalVolume(solidSub_enclosure_pmt6, steel, "EnclosurePMT");
+
+    new G4PVPlacement(0, G4ThreeVector(0, 0, -enclosure_pmt_z), logic_enclosure_pmt, "EnclosurePMT", logic_vessel, false, 0, true);
+
+    // Vacuum inside the pmt enclosure
+    G4double enclosurevac_pmt_z = vessel_length_/2 - enclosurevac_pmt_length_/2;
+    G4double relativevac_pmt_z  = enclosurevac_pmt_z - pmt_z;
+
+    G4Tubs *solid_enclosurevac_pmt = new G4Tubs("EnclosureVacPMT", 0, enclosure_pmt_rad_, (enclosurevac_pmt_length_)/2, 0., 360.*deg);
+    G4VSolid *solidSub_enclosurevac_pmt0  = new G4SubtractionSolid("EnclosureVacPMT", solid_enclosurevac_pmt, solid_pmt,     0,G4ThreeVector(-15.573*mm, -32.871*mm, relativevac_pmt_z));
+    G4VSolid *solidSub_enclosurevac_pmt1  = new G4SubtractionSolid("EnclosureVacPMT", solidSub_enclosurevac_pmt0, solid_pmt, 0,G4ThreeVector(20.68*mm,   -29.922*mm, relativevac_pmt_z));
+    G4VSolid *solidSub_enclosurevac_pmt2  = new G4SubtractionSolid("EnclosureVacPMT", solidSub_enclosurevac_pmt1, solid_pmt, 0,G4ThreeVector(-36.253*mm, -2.949*mm,  relativevac_pmt_z));
+    G4VSolid *solidSub_enclosurevac_pmt3  = new G4SubtractionSolid("EnclosureVacPMT", solidSub_enclosurevac_pmt2, solid_pmt, 0,G4ThreeVector(0.,          0.,        relativevac_pmt_z));
+    G4VSolid *solidSub_enclosurevac_pmt4  = new G4SubtractionSolid("EnclosureVacPMT", solidSub_enclosurevac_pmt3, solid_pmt, 0,G4ThreeVector(36.253*mm,   2.949*mm,  relativevac_pmt_z));
+    G4VSolid *solidSub_enclosurevac_pmt5  = new G4SubtractionSolid("EnclosureVacPMT", solidSub_enclosurevac_pmt4, solid_pmt, 0,G4ThreeVector(-20.68*mm,   29.922*mm, relativevac_pmt_z));
+    G4VSolid *solidSub_enclosurevac_pmt6  = new G4SubtractionSolid("EnclosureVacPMT", solidSub_enclosurevac_pmt5, solid_pmt, 0,G4ThreeVector(15.573*mm,   32.871*mm, relativevac_pmt_z));
+
+    G4LogicalVolume *logic_enclosurevac_pmt = new G4LogicalVolume(solidSub_enclosurevac_pmt6, vacuum, "EnclosureVacPMT");
+
+    new G4PVPlacement(0, G4ThreeVector(0., 0, enclosure_pmt_z - enclosurevac_pmt_z), logic_enclosurevac_pmt, "EnclosureVacPMT", logic_enclosure_pmt, false, 0, true);
+
+    // PMT Holder
+    G4Tubs *solid_pmtHolder = new G4Tubs("PMTHolder", 0, pmtHolder_rad_, (pmtHolder_length_)/2, 0., 360.*deg);
+    G4VSolid *solidSub_pmtHolder0  = new G4SubtractionSolid("PMTHolder", solid_pmtHolder, solid_pmt,     0,G4ThreeVector(-15.573*mm, -32.871*mm, 0.));
+    G4VSolid *solidSub_pmtHolder1  = new G4SubtractionSolid("PMTHolder", solidSub_pmtHolder0, solid_pmt, 0,G4ThreeVector(20.68*mm,   -29.922*mm, 0.));
+    G4VSolid *solidSub_pmtHolder2  = new G4SubtractionSolid("PMTHolder", solidSub_pmtHolder1, solid_pmt, 0,G4ThreeVector(-36.253*mm, -2.949*mm,  0.));
+    G4VSolid *solidSub_pmtHolder3  = new G4SubtractionSolid("PMTHolder", solidSub_pmtHolder2, solid_pmt, 0,G4ThreeVector(0.,          0.     ,   0.));
+    G4VSolid *solidSub_pmtHolder4  = new G4SubtractionSolid("PMTHolder", solidSub_pmtHolder3, solid_pmt, 0,G4ThreeVector(36.253*mm,   2.949*mm,  0.));
+    G4VSolid *solidSub_pmtHolder5  = new G4SubtractionSolid("PMTHolder", solidSub_pmtHolder4, solid_pmt, 0,G4ThreeVector(-20.68*mm,   29.922*mm, 0.));
+    G4VSolid *solidSub_pmtHolder6  = new G4SubtractionSolid("PMTHolder", solidSub_pmtHolder5, solid_pmt, 0,G4ThreeVector(15.573*mm,   32.871*mm, 0.));
+
+    G4LogicalVolume *logic_pmtHolder = new G4LogicalVolume(solidSub_pmtHolder6, steel, "PMTHolder");
+
+    G4double pmtHolder_z = enclosurevac_pmt_length_/2 - pmtHolder_length_/2;
+    new G4PVPlacement(0, G4ThreeVector(0., 0, pmtHolder_z), logic_pmtHolder, "PMTHolder", logic_enclosurevac_pmt, false, 0, true);
+
+    // Steel plate enclosing the pmt tube
+    G4Tubs *solid_plate1_pmt = new G4Tubs("PMTplate1", 0, plate_pmt_rad_+plate_pmt_thickn_, plate_pmt_length_/2, 0, 360*deg);
+    G4VSolid *solidSub_plate1_pmt0  = new G4SubtractionSolid("PMTplate1", solid_plate1_pmt, solid_pmt,     0,G4ThreeVector(-15.573*mm,  -32.871*mm, 0.));
+    G4VSolid *solidSub_plate1_pmt1  = new G4SubtractionSolid("PMTplate1", solidSub_plate1_pmt0, solid_pmt, 0,G4ThreeVector(20.68*mm,    -29.922*mm, 0.));
+    G4VSolid *solidSub_plate1_pmt2  = new G4SubtractionSolid("PMTplate1", solidSub_plate1_pmt1, solid_pmt, 0,G4ThreeVector(-36.253*mm,  -2.949*mm,  0.));
+    G4VSolid *solidSub_plate1_pmt3  = new G4SubtractionSolid("PMTplate1", solidSub_plate1_pmt2, solid_pmt, 0,G4ThreeVector(0.,           0.,        0.));
+    G4VSolid *solidSub_plate1_pmt4  = new G4SubtractionSolid("PMTplate1", solidSub_plate1_pmt3, solid_pmt, 0,G4ThreeVector(36.253*mm,    2.949*mm,  0.));
+    G4VSolid *solidSub_plate1_pmt5  = new G4SubtractionSolid("PMTplate1", solidSub_plate1_pmt4, solid_pmt, 0,G4ThreeVector(-20.68*mm,    29.922*mm, 0.));
+    G4VSolid *solidSub_plate1_pmt6  = new G4SubtractionSolid("PMTplate1", solidSub_plate1_pmt5, solid_pmt, 0,G4ThreeVector(15.573*mm,    32.871*mm, 0.));
+
+    G4LogicalVolume *logic_plate1_pmt = new G4LogicalVolume(solidSub_plate1_pmt6, steel, "PMTplateBottom");
+
+    G4double plate1_pmt_z = enclosure_pmt_z - enclosure_pmt_length_/2 - plate_pmt_length_/2;
+    new G4PVPlacement(0, G4ThreeVector(0., 0., -plate1_pmt_z), logic_plate1_pmt, "PMTplateBottom", logic_vessel, false, 0, true);
+
+    // Steel plate attached where the peek holders are attached
+    G4Tubs          *solid_plate0_pmt = new G4Tubs("PMTplateBottom", plate_pmt_rad_, plate_pmt_rad_+plate_pmt_thickn_, plate_pmt_length_/2, 0, 360*deg);
+    G4LogicalVolume *logic_plate0_pmt = new G4LogicalVolume(solid_plate0_pmt, steel, "PMTplateBottom");
+
+    G4double plate0_pmt_z = plate1_pmt_z - plate_pmt_length_;
+    new G4PVPlacement(0, G4ThreeVector(0., 0., -plate0_pmt_z), logic_plate0_pmt, "PMTplateBottom", logic_vessel, false, 0, true);
+
+    // Upper steel plate at the pmt clad
+    G4double plateUp_pmt_rad_ = enclosure_pmt_rad_ + enclosure_pmt_thickn_;
+
+    G4Tubs          *solid_plateUp_pmt = new G4Tubs("PMTplateUp", plateUp_pmt_rad_, plateUp_pmt_rad_+plateUp_pmt_thickn_, plateUp_pmt_length_/2, 0, 360*deg);
+    G4LogicalVolume *logic_plateUp_pmt = new G4LogicalVolume(solid_plateUp_pmt, steel, "PMTplateUp");
+
+    G4double plateUp_pmt_z = vessel_length_/2 - plateUp_pmt_length_/2 ;
+    new G4PVPlacement(0, G4ThreeVector(0., 0., -plateUp_pmt_z), logic_plateUp_pmt, "PMTplateUp", logic_vessel, false, 0, true);
 
 }
