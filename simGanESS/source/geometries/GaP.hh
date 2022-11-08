@@ -57,6 +57,8 @@ class GaP : public GeometryBase
         G4double anodeBracket_rad_ ;
         G4double anodeBracket_thickn_ ;
 
+        G4double pmt_rad_;
+
         // Pmt enclosure
         G4double enclosure_pmt_rad_   ;
         G4double enclosure_pmt_thickn_;
