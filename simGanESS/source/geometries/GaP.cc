@@ -530,6 +530,7 @@ void GaP::BuildTPC(G4Material* gas, G4Material* mesh_mat, G4Material* steel, G4M
     std::vector <float> pmt_PsX={-15.573, 20.68, -36.253, 0., 36.253, -20.68, 15.573};
     std::vector <float> pmt_PsY={-32.871, -29.922, -2.949, 0., 2.949, 29.922, 32.871};
 
+
     // PMT clad
     G4VSolid *solid_enclosure_pmt = new G4Tubs("EnclosurePMT", 0, enclosure_pmt_rad_+ enclosure_pmt_thickn_ , (enclosure_pmt_length_)/2, 0., 360.*deg);
     G4double enclosure_pmt_z = vessel_length_/2 - enclosure_pmt_length_/2;
@@ -545,13 +546,12 @@ void GaP::BuildTPC(G4Material* gas, G4Material* mesh_mat, G4Material* steel, G4M
     G4double plate1_pmt_z = enclosure_pmt_z - enclosure_pmt_length_/2 - plate_pmt_length_/2;
     G4VSolid *solid_plate1_pmt = new G4Tubs("PMTplateBottom1", 0, plate_pmt_rad_+plate_pmt_thickn_, plate_pmt_length_/2, 0, 360*deg);
 
-    G4int nHole = 7;
     G4ThreeVector pos_pmt = G4ThreeVector(0, 0, 0);
     G4ThreeVector pos_enclosure_pmt = G4ThreeVector(0, 0, 0);
     G4ThreeVector pos_enclosurevac_pmt = G4ThreeVector(0, 0, 0);
     G4ThreeVector pos = G4ThreeVector(0, 0, 0);
 
-    for (G4int i = 0; i < nHole; i++) {
+    for (G4int i = 0; i < G4int(pmt_PsX.size()); i++) {
       pos_pmt = G4ThreeVector(pmt_PsX[i]*mm, pmt_PsY[i]*mm, -pmt_z);
       pos_enclosure_pmt = G4ThreeVector(pmt_PsX[i]*mm, pmt_PsY[i]*mm, relative_pmt_z);
       pos_enclosurevac_pmt = G4ThreeVector(pmt_PsX[i]*mm, pmt_PsY[i]*mm, relativevac_pmt_z);
