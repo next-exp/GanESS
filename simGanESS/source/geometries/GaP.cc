@@ -14,11 +14,14 @@
 #include <G4UserLimits.hh>
 #include <G4SDManager.hh>
 
+#include "OpticalMaterialProperties_GanESS.h"
+
 #include "nexus/FactoryBase.h"
 #include "nexus/UniformElectricDriftField.h"
 #include "nexus/OpticalMaterialProperties.h"
 #include "nexus/XenonProperties.h"
 #include "nexus/IonizationSD.h"
+
 
 #include <iostream>
 #include <cmath>
@@ -115,7 +118,7 @@ void GaP::Construct()
               sc_yield_, elifetime_, photoe_prob_));
 
     steel_ = materials::Steel();
-    steel_->SetMaterialPropertiesTable(new G4MaterialPropertiesTable());
+    steel_->SetMaterialPropertiesTable(opticalprops_GanESS::Steel());
 
     //PEEK for the holders
     peek_ = materials::PEEK();
