@@ -45,12 +45,16 @@
 /vis/modeling/trajectories/drawByCharge-0/default/setStepPtsSize 2
 
 ### Colors
-### Colors
 /vis/geometry/set/colour GasDrift   0 0.9 0.9 0.9 0.5
 /vis/geometry/set/colour GasEL      0 0.9 0.9 0.9 0.5
 
 /vis/geometry/set/colour Vessel     0 0.2 0.2 0.3 0.3
 /vis/geometry/set/colour GasVessel  0 0.1 0.2 0.3 0.4
+
+/vis/geometry/set/colour HVFT1    0 1 1 1 0.2
+/vis/geometry/set/colour HVFT2    0 1 1 1 0.2
+/vis/geometry/set/colour HVFT3    0 1 1 1 0.2
+
 /vis/geometry/set/colour Cathode    0 0.28 0.82 0.8 0.7
 /vis/geometry/set/colour Anode      0 0.28 0.82 0.8 0.7
 /vis/geometry/set/colour Gate       0 0.28 0.82 0.8 0.7
@@ -65,7 +69,6 @@
 /vis/geometry/set/colour PMTplateBottom1  0 0.2 0.2 0.3 0.3
 /vis/geometry/set/colour PMTplateUp       0 0.2 0.2 0.3 0.3
 /vis/geometry/set/colour PMTHolder        0 0.2 0.2 0.3 0.3
-
 
 /vis/geometry/set/colour MeshHolder     0 1 1 1 1
 /vis/geometry/set/colour AnodeHolder    0 1 1 1 1

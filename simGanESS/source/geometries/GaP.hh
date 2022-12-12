@@ -26,10 +26,14 @@ class GaP : public GeometryBase
     private:
         void DefineConfigurationParameters();
         void Construct();
-        void BuildTPC(G4Material* gas, G4Material* mesh_mat, G4Material* steel, G4Material* peek, G4Material* vacuum, G4Material* quartz, G4Material* tpb, G4LogicalVolume* logic_vessel);
+        void BuildVessel();
+        void BuildTPC();
 
     private:
         G4GenericMessenger* msg_;
+
+        //Detector vessel Logical Volume
+        G4LogicalVolume* logic_vessel_steel_;
 
         // Materials
         G4Material* gas_;
@@ -78,6 +82,31 @@ class GaP : public GeometryBase
         G4double quartz_window_rad_;
         G4double quartz_window_thickn_;
         G4double tpb_coating_thickn_;
+
+        //Vessel bracket arms
+        G4double vessel_arm_rad_;
+        G4double vessel_arm_thickn_;
+        G4double vessel_arm_length_;
+        G4double vessel_armCover_rad_;
+        G4double vessel_armCover_length_;
+
+        // HV Feedthrough bracket arms
+        G4double hvft_arm_rad_;
+        G4double hvft_arm_thickn_;
+        G4double hvft_arm_length_;
+        G4double hvft_armCover_rad_;
+        G4double hvft_armCover_length_;
+
+        // HV Feedthrough
+        G4double hvft_cathode_z;
+        G4double hvft_gate_z;
+        G4double hvft_rad1_;
+        G4double hvft_length1_;
+        G4double hvft_rad2_;
+        G4double hvft_length2_;
+        G4double hvft_rad3_;
+        G4double hvft_length3_;
+
 
         G4double photoe_prob_;
 
