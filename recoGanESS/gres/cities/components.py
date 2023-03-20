@@ -6,8 +6,6 @@ import pandas as pd
 
 from typing          import Callable, List, Generator
 
-
-
 from invisible_cities.dataflow                 import dataflow as  fl
 
 from invisible_cities.  cities.components      import signal_finder
@@ -30,6 +28,8 @@ from invisible_cities.  detsim.sensor_utils    import trigger_times
 from invisible_cities.   types.ic_types        import minmax
 from invisible_cities.    reco.xy_algorithms   import corona
 from invisible_cities.core                     import system_of_units as units
+from invisible_cities.reco                     import calib_sensors_functions as csf
+from invisible_cities.reco                     import peak_functions       as pkf_ic
 
 from .. detsim              import  buffer_functions as bf
 from .. io     .rwf_io      import  buffer_writer
@@ -92,6 +92,35 @@ def calculate_and_save_buffers(buffer_length    : float        ,
     # Filter out order_sensors if it is not set
     buffer_definition = fl.pipe(*filter(None, find_signal_and_write_buffers))
     return buffer_definition
+
+def rebin_pmts(rebin_stride):
+    def rebin_pmts(rwf):
+        rebinned_wfs = rwf
+        if rebin_stride > 1:
+            # dummy data for times and widths
+            times     = np.zeros(rwf.shape[1])
+            widths    = times
+            waveforms = rwf
+            _, _, rebinned_wfs = pkf_ic.rebin_times_and_waveforms(times, widths, waveforms, rebin_stride=rebin_stride)
+        return rebinned_wfs
+    return rebin_pmts
+
+
+def pmts_sum(rwfs):
+    return rwfs.sum(axis=0)
+
+def calibrate_pmts(dbfile, run_number, n_baseline, n_MAU, thr_MAU, pedestal_function=csf.means):
+    DataPMT    = load_db.DataPMT(dbfile, run_number = run_number)
+    adc_to_pes = np.abs(DataPMT.adc_to_pes.values)
+    adc_to_pes = adc_to_pes[adc_to_pes > 0]
+
+    def calibrate_pmts(wf):# -> CCwfs:
+        cwf = pedestal_function(wf[:, :n_baseline]) - wf ### Change pulse polarity
+        return csf.calibrate_pmts(cwf,
+                                  adc_to_pes = adc_to_pes,
+                                  n_MAU      = n_MAU,
+                                  thr_MAU    = thr_MAU)
+    return calibrate_pmts
 
 def compute_and_write_pmaps(detector_db, run_number, pmt_samp_wid,
                             s1_lmax, s1_lmin, s1_rebin_stride, s1_stride, s1_tmax, s1_tmin,
@@ -165,14 +194,6 @@ def build_pmap(detector_db, run_number, pmt_samp_wid,
                             pmt_samp_wid)
 
     return build_pmap
-
-def sensor_data(path, wf_type):
-    with tb.open_file(path, "r") as h5in:
-        if   wf_type is WfType.rwf :   pmt_wfs = h5in.root.RD .pmtrwf
-        elif wf_type is WfType.mcrd:   pmt_wfs = h5in.root.    pmtrd 
-        else                       :   raise TypeError(f"Invalid WfType: {type(wf_type)}")
-        _, NPMT ,  PMTWL =  pmt_wfs.shape
-        return SensorData(NPMT=NPMT, PMTWL=PMTWL)
 
 def wf_from_files(paths, wf_type):
     for path in paths:

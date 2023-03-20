@@ -20,7 +20,6 @@ from functools import partial
 
 from invisible_cities. reco                  import sensor_functions     as sf
 from invisible_cities. reco                  import tbl_functions        as tbl
-from invisible_cities. reco                  import peak_functions       as pkf
 from invisible_cities. core                  import system_of_units      as units
 from invisible_cities. io  .run_and_event_io import run_and_event_writer
 from invisible_cities. io  .      trigger_io import       trigger_writer
@@ -37,10 +36,11 @@ from invisible_cities.cities.components import copy_mc_info
 from invisible_cities.cities.components import zero_suppress_wfs
 from invisible_cities.cities.components import WfType
 
-from .components import sensor_data
 from .components import compute_and_write_pmaps
 from .components import wf_from_files
 from .components import get_number_of_active_pmts
+from .components import rebin_pmts  
+from .components import pmts_sum
 
 @city
 def thekla(files_in, file_out, compression, event_range, print_mod, detector_db, run_number,
@@ -48,9 +48,8 @@ def thekla(files_in, file_out, compression, event_range, print_mod, detector_db,
            s1_lmin, s1_lmax, s1_tmin, s1_tmax, s1_rebin_stride, s1_stride, thr_csum_s1,
            s2_lmin, s2_lmax, s2_tmin, s2_tmax, s2_rebin_stride, s2_stride, thr_csum_s2,
            pmt_samp_wid=100*units.ns):
+    
     #### Define data transformations
-    sd = sensor_data(files_in[0], WfType.mcrd)
-
     # Raw WaveForm to Corrected WaveForm
     mcrd_to_rwf      = fl.map(rebin_pmts(pmt_wfs_rebin),
                               args = "pmt",
@@ -113,20 +112,3 @@ def thekla(files_in, file_out, compression, event_range, print_mod, detector_db,
         if run_number <= 0:
             copy_mc_info(files_in, h5out, result.evtnum_list,
                          detector_db, run_number)
-
-
-def rebin_pmts(rebin_stride):
-    def rebin_pmts(rwf):
-        rebinned_wfs = rwf
-        if rebin_stride > 1:
-            # dummy data for times and widths
-            times     = np.zeros(rwf.shape[1])
-            widths    = times
-            waveforms = rwf
-            _, _, rebinned_wfs = pkf.rebin_times_and_waveforms(times, widths, waveforms, rebin_stride=rebin_stride)
-        return rebinned_wfs
-    return rebin_pmts
-
-
-def pmts_sum(rwfs):
-    return rwfs.sum(axis=0)
