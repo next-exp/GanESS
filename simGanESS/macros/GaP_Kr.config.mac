@@ -4,7 +4,8 @@
 /Generator/Kr83mGenerator/region  GasDrift
 
 # Gas properties
-/Geometry/GaP/pressure 15. bar
+/Geometry/GaP/gas Xe
+/Geometry/GaP/pressure 10. bar
 /Geometry/GaP/temperature 293. kelvin
 /Geometry/GaP/sc_yield 22222. 1/MeV
 
@@ -18,7 +19,7 @@
 /Geometry/GaP/el_vel .1 cm/us
 /Geometry/GaP/el_transv_diff 1. mm/sqrt(cm)
 /Geometry/GaP/el_long_diff .3 mm/sqrt(cm)
-/Geometry/GaP/el_field 22 kilovolt/cm
+/Geometry/GaP/el_field 12.5 kilovolt/cm
 
 # Mesh properties
 /Geometry/GaP/photoe_prob 0.

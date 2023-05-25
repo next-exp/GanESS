@@ -40,6 +40,9 @@ class GaP : public GeometryBase
         G4Material* quartz_;
         G4Material* tpb_;
 
+        // Gas being used.
+        G4String gas_element_;
+
         // Vessel parameters
         G4double vessel_out_rad_   ;
         G4double vessel_out_length_;
@@ -92,6 +95,7 @@ class GaP : public GeometryBase
 
         // EL field (in kV/cm)
         G4double el_field_;
+        G4double yield_;
         G4double el_vel_;
         G4double el_transv_diff_;
         G4double el_long_diff_;

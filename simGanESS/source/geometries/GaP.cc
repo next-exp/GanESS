@@ -18,6 +18,7 @@
 #include "nexus/UniformElectricDriftField.h"
 #include "nexus/OpticalMaterialProperties.h"
 #include "nexus/XenonProperties.h"
+#include "nexus/ArgonGasProperties.h"
 #include "nexus/IonizationSD.h"
 
 #include <iostream>
@@ -34,6 +35,8 @@ GaP::GaP():
     msg_ (nullptr),
     gas_ (nullptr),
     mesh_mat_ (nullptr),
+
+    gas_element_("Xe"),
 
     vessel_out_rad_    (288./2  *mm),
     vessel_out_length_ (46.679  *cm),
@@ -102,12 +105,23 @@ GaP::~GaP()
 
 void GaP::Construct()
 {
-    //Materials
-    gas_   = materials::GXe(pressure_, temperature_);
-    gas_->SetMaterialPropertiesTable(opticalprops::GXe(pressure_,
-                                                      temperature_,
-                                                      sc_yield_,
-                                                      elifetime_));
+    // TPC gas
+    if (gas_element_ == "Xe") {
+      gas_ = materials::GXe(pressure_, temperature_);
+      gas_->SetMaterialPropertiesTable(opticalprops::GXe(pressure_, temperature_, sc_yield_, elifetime_));
+      yield_ = XenonELLightYield(el_field_, gas_->GetPressure());
+
+    } 
+    else if (gas_element_ == "Ar") {
+      gas_ =  materials::GAr(pressure_, temperature_);
+      gas_->SetMaterialPropertiesTable(opticalprops::GAr(sc_yield_, elifetime_));
+      yield_ = ArgonELLightYield(el_field_, gas_->GetPressure());
+    }
+    else {
+      G4Exception("[NextNewVessel]", "Construct()", FatalException,
+		  "Unknown kind of gas, valid options are: Xe, Ar");
+    }
+
     // Mesh materials (cathode, anode and gate)
     mesh_mat_ = materials::FakeDielectric(gas_, "mesh_mat");
     mesh_mat_->SetMaterialPropertiesTable(opticalprops::FakeGrid(pressure_,
@@ -177,7 +191,10 @@ G4ThreeVector GaP::GenerateVertexGas(const G4String& region) const
 
 void GaP::DefineConfigurationParameters()
 {
-  // Gas pressure
+  // Gas element
+  msg_->DeclareProperty("gas", gas_element_, "Gas element in TPC.");
+  
+    // Gas pressure
   G4GenericMessenger::Command& pressure_cmd =
     msg_->DeclareProperty("pressure", pressure_,
                           "Pressure of the gas.");
@@ -393,15 +410,14 @@ void GaP::BuildTPC(G4Material* gas, G4Material* mesh_mat, G4Material* steel, G4M
     new G4PVPlacement(0, G4ThreeVector(meshHolderBar_xy, -meshHolderBar_xy, -meshHolderBar_z), logic_meshHolderBar, "MeshHolderBarC", logic_vessel, false, 2, true);
     new G4PVPlacement(0, G4ThreeVector(-meshHolderBar_xy, -meshHolderBar_xy, -meshHolderBar_z), logic_meshHolderBar, "MeshHolderBarD", logic_vessel, false, 3, true);
 
-    /// Define EL electric field
-    G4double yield = XenonELLightYield(el_field_, gas->GetPressure());
+    /// Define EL electric field    
     UniformElectricDriftField* el_field = new UniformElectricDriftField();
     el_field->SetCathodePosition(el_z + el_length_/2.);
     el_field->SetAnodePosition  (el_z - el_length_/2.);
     el_field->SetDriftVelocity        (el_vel_);
     el_field->SetTransverseDiffusion  (el_transv_diff_);
     el_field->SetLongitudinalDiffusion(el_long_diff_);
-    el_field->SetLightYield(yield);
+    el_field->SetLightYield(yield_);
     G4Region* el_region = new G4Region("EL");
     el_region->SetUserInformation(el_field);
     el_region->AddRootLogicalVolume(logic_gas_el);
@@ -450,8 +466,8 @@ void GaP::BuildTPC(G4Material* gas, G4Material* mesh_mat, G4Material* steel, G4M
               " to " << el_z + el_length_/2. << G4endl;
 
     G4cout << "* EL field intensity (kV/cm): " << el_field_ / (kilovolt/cm)
-            << "  ->  EL Light yield (photons/ie-/cm): " << yield / (1/cm) << G4endl;
-    G4cout << "* EL Light yield (photons/ie-): " << yield * el_length_ << G4endl;
+            << "  ->  EL Light yield (photons/ie-/cm): " << yield_ / (1/cm) << G4endl;
+    G4cout << "* EL Light yield (photons/ie-): " << yield_ * el_length_ << G4endl;
 
     //// Quartz Window
     G4Tubs          *solid_quartz_window = new G4Tubs("QuartzWindow", 0, quartz_window_rad_, quartz_window_thickn_/2, 0, 360*deg);
@@ -464,7 +480,7 @@ void GaP::BuildTPC(G4Material* gas, G4Material* mesh_mat, G4Material* steel, G4M
     G4Tubs          *solid_tpb_coating = new G4Tubs("CoatingTPB", 0, quartz_window_rad_, tpb_coating_thickn_/2, 0, 360*deg);
     G4LogicalVolume *logic_tpb_coating = new G4LogicalVolume(solid_tpb_coating, tpb, "CoatingTPB");
 
-    G4double tpb_coating_z = quartz_window_z + quartz_window_thickn_/2 + tpb_coating_thickn_/2 ;
+    G4double tpb_coating_z = quartz_window_z - quartz_window_thickn_/2 - tpb_coating_thickn_/2 ;
     new G4PVPlacement(0, G4ThreeVector(0., 0., -tpb_coating_z ), logic_tpb_coating, "CoatingTPB", logic_vessel, false, 0, true);
 
     // Optical surface between gas and TPB to model the latter's roughness
