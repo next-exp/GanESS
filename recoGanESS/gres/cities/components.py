@@ -4,7 +4,8 @@ import numpy  as np
 import tables as tb
 import pandas as pd
 
-from typing          import Callable, List, Generator
+from typing import Callable, List, Generator
+from scipy.ndimage import uniform_filter1d
 
 from invisible_cities.dataflow                 import dataflow as  fl
 
@@ -109,18 +110,51 @@ def rebin_pmts(rebin_stride):
 def pmts_sum(rwfs):
     return rwfs.sum(axis=0)
 
-def calibrate_pmts(dbfile, run_number, n_baseline, n_MAU, thr_MAU, pedestal_function=csf.means):
+def calibrate_pmts(dbfile, run_number, n_baseline, n_MAU, thr_MAU, pedestal_function=np.mean):
     DataPMT    = load_db.DataPMT(dbfile, run_number = run_number)
     adc_to_pes = np.abs(DataPMT.adc_to_pes.values)
     adc_to_pes = adc_to_pes[adc_to_pes > 0]
-
     def calibrate_pmts(wf):# -> CCwfs:
         cwf = pedestal_function(wf[:, :n_baseline]) - wf ### Change pulse polarity
-        return csf.calibrate_pmts(cwf,
+        return calibrate_pmts_maw(cwf,
                                   adc_to_pes = adc_to_pes,
-                                  n_MAU      = n_MAU,
-                                  thr_MAU    = thr_MAU)
+                                  n_maw      = n_MAU,
+                                  thr_maw    = thr_MAU)
     return calibrate_pmts
+
+#def calibrate_pmts(dbfile, run_number, n_baseline, n_MAU, thr_MAU, pedestal_function=np.mean):
+#    DataPMT    = load_db.DataPMT(dbfile, run_number = run_number)
+#    adc_to_pes = np.abs(DataPMT.adc_to_pes.values)
+#    adc_to_pes = adc_to_pes[adc_to_pes > 0]
+#    def calibrate_pmts(wf):# -> CCwfs:
+#        cwf = pedestal_function(wf[:, :n_baseline]) - wf ### Change pulse polarity
+#        return csf.calibrate_pmts(cwf,
+#                                  adc_to_pes = adc_to_pes,
+#                                  n_MAU      = n_MAU,
+#                                  thr_MAU    = thr_MAU)
+#    return calibrate_pmts
+
+def calibrate_pmts_maw(cwfs, adc_to_pes, n_maw=100, thr_maw=3):
+    """
+    This function is called for PMT waveforms that have
+    already been baseline restored and pedestal subtracted.
+    It computes the calibrated waveforms and its sensor sum.
+    It also computes the calibrated waveforms and sensor
+    sum for elements of the waveforms above some value
+    (thr_maw) over a MAW that follows the waveform. These
+    are useful to suppress oscillatory noise and thus can
+    be applied for S1 searches (the calibrated version
+    without the MAW should be applied for S2 searches).
+    """
+
+    # ccwfs stands for calibrated corrected waveforms
+    maw         = uniform_filter1d(cwfs, n_maw, axis=1, mode='constant')
+    ccwfs       = csf.calibrate_wfs(cwfs, adc_to_pes)
+    ccwfs_maw   = np.where(maw >= thr_maw, ccwfs, 0)
+
+    cwf_sum     = np.sum(ccwfs    , axis=0)
+    cwf_sum_maw = np.sum(ccwfs_maw, axis=0)
+    return ccwfs, ccwfs_maw, cwf_sum, cwf_sum_maw, maw
 
 def compute_and_write_pmaps(detector_db, run_number, pmt_samp_wid,
                             s1_lmax, s1_lmin, s1_rebin_stride, s1_stride, s1_tmax, s1_tmin,
