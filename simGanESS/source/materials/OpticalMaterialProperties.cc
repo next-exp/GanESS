@@ -67,6 +67,13 @@ namespace opticalprops {
     mpt->AddConstProperty("SCINTILLATIONTIMECONSTANT2",   3480.*ns); // From https://dspace.mit.edu/bitstream/handle/1721.1/129347/1903.06706.pdf?sequence=2&isAllowed=y
     mpt->AddConstProperty("SCINTILLATIONYIELD1", .136); // From https://dspace.mit.edu/bitstream/handle/1721.1/129347/1903.06706.pdf?sequence=2&isAllowed=y
     mpt->AddConstProperty("SCINTILLATIONYIELD2", .864); // From https://dspace.mit.edu/bitstream/handle/1721.1/129347/1903.06706.pdf?sequence=2&isAllowed=y
+    
+    mpt->AddConstProperty("ELTIMECONSTANT1",   6.*ns, 1); // From https://dspace.mit.edu/bitstream/handle/1721.1/129347/1903.06706.pdf?sequence=2&isAllowed=y
+    mpt->AddConstProperty("ELTIMECONSTANT2",   3480.*ns, 1); // From https://dspace.mit.edu/bitstream/handle/1721.1/129347/1903.06706.pdf?sequence=2&isAllowed=y
+    mpt->AddConstProperty("ELTIMECONSTANT3",  0, 1); // From https://dspace.mit.edu/bitstream/handle/1721.1/129347/1903.06706.pdf?sequence=2&isAllowed=y
+    mpt->AddConstProperty("ELYIELD1", .136, 1); // From https://dspace.mit.edu/bitstream/handle/1721.1/129347/1903.06706.pdf?sequence=2&isAllowed=y
+    mpt->AddConstProperty("ELYIELD2", .864, 1); // From https://dspace.mit.edu/bitstream/handle/1721.1/129347/1903.06706.pdf?sequence=2&isAllowed=y   
+    mpt->AddConstProperty("ELYIELD3", 0, 1); // From https://dspace.mit.edu/bitstream/handle/1721.1/129347/1903.06706.pdf?sequence=2&isAllowed=y   
     mpt->AddConstProperty("RESOLUTIONSCALE",    1.0);
     mpt->AddConstProperty("ATTACHMENT",         e_lifetime, 1);
 
