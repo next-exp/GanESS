@@ -29,7 +29,7 @@ from invisible_cities.  detsim.sensor_utils    import trigger_times
 from invisible_cities.   types.ic_types        import minmax
 from invisible_cities.    reco.xy_algorithms   import corona
 from invisible_cities.core                     import system_of_units as units
-from invisible_cities.reco                     import calib_sensors_functions as csf
+from invisible_cities.calib                    import calib_sensors_functions as csf
 from invisible_cities.reco                     import peak_functions       as pkf_ic
 
 from .. detsim              import  buffer_functions as bf
@@ -122,17 +122,17 @@ def calibrate_pmts(dbfile, run_number, n_baseline, n_MAU, thr_MAU, pedestal_func
                                   thr_maw    = thr_MAU)
     return calibrate_pmts
 
-#def calibrate_pmts(dbfile, run_number, n_baseline, n_MAU, thr_MAU, pedestal_function=np.mean):
-#    DataPMT    = load_db.DataPMT(dbfile, run_number = run_number)
-#    adc_to_pes = np.abs(DataPMT.adc_to_pes.values)
-#    adc_to_pes = adc_to_pes[adc_to_pes > 0]
-#    def calibrate_pmts(wf):# -> CCwfs:
-#        cwf = pedestal_function(wf[:, :n_baseline]) - wf ### Change pulse polarity
-#        return csf.calibrate_pmts(cwf,
-#                                  adc_to_pes = adc_to_pes,
-#                                  n_MAU      = n_MAU,
-#                                  thr_MAU    = thr_MAU)
-#    return calibrate_pmts
+def calibrate_pmts_wf_data(dbfile, run_number, n_baseline, n_MAU, thr_MAU, pedestal_function=np.mean):
+    DataPMT    = load_db.DataPMT(dbfile, run_number = run_number)
+    adc_to_pes = np.abs(DataPMT.adc_to_pes.values)
+    adc_to_pes = adc_to_pes[adc_to_pes > 0]
+    def calibrate_pmts(wf):# -> CCwfs:
+        cwf = pedestal_function(wf[:, :n_baseline], axis=1)[:, np.newaxis] - wf ### Change pulse polarity
+        return calibrate_pmts_maw(cwf,
+                                  adc_to_pes = adc_to_pes,
+                                  n_maw      = n_MAU,
+                                  thr_maw    = thr_MAU)
+    return calibrate_pmts
 
 def calibrate_pmts_maw(cwfs, adc_to_pes, n_maw=100, thr_maw=3):
     """

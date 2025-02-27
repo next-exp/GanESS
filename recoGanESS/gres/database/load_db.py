@@ -7,7 +7,8 @@ from functools import lru_cache
 
 
 class DetDB:
-    gap = os.environ['GRESDIR'] + '/database/localdb.GaP.sqlite3'
+    gap     = os.environ['GRESDIR'] + '/database/localdb.GaP.sqlite3'
+    gap_ext = os.environ['GRESDIR'] + '/database/localdb.GaP_ext.sqlite3'
 
 def tmap(*args):
     return tuple(map(*args))
@@ -23,7 +24,6 @@ def DataPMT(db_file, run_number=1e5):
     if run_number == 0:
         run_number = runNumberForMC
     conn = sqlite3.connect(get_db(db_file))
-
     sql = '''select pos.SensorID, map.ElecID "ChannelID", Label "PmtID",
 case when msk.SensorID is NULL then 1 else 0 end "Active",
 X, Y, coeff_blr, coeff_c, abs(Centroid) "adc_to_pes", noise_rms, Sigma

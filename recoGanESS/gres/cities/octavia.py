@@ -12,7 +12,7 @@ This includes a number of tasks:
 """
 import tables as tb
 
-from invisible_cities.reco                   import          tbl_functions as tbl
+from invisible_cities.core                   import          tbl_functions as tbl
 from invisible_cities.core                   import        system_of_units as units
 from invisible_cities. io  .run_and_event_io import run_and_event_writer
 from invisible_cities. io  .      trigger_io import       trigger_writer
@@ -29,17 +29,35 @@ from invisible_cities.cities.components import copy_mc_info
 from invisible_cities.cities.components import zero_suppress_wfs
 from invisible_cities.cities.components import WfType
 
+from invisible_cities. core .configure  import             EventRangeType
+from invisible_cities. core .configure  import             OneOrManyFiles
+
 from .components import compute_and_write_pmaps
 from .components import wf_from_files
 from .components import get_number_of_active_pmts
 from .components import calibrate_pmts
 
 @city
-def octavia(files_in, file_out, compression, event_range, print_mod, detector_db, run_number,
-           n_baseline, n_maw, thr_maw,
-           s1_lmin, s1_lmax, s1_tmin, s1_tmax, s1_rebin_stride, s1_stride, thr_csum_s1,
-           s2_lmin, s2_lmax, s2_tmin, s2_tmax, s2_rebin_stride, s2_stride, thr_csum_s2,
-           pmt_samp_wid=8*units.ns):
+def octavia( files_in        : OneOrManyFiles
+           , file_out        : str
+           , compression     : str
+           , event_range     : EventRangeType
+           , print_mod       : int
+           , detector_db     : str
+           , run_number      : int
+           , n_baseline      : int
+           , n_maw           : int
+           , thr_maw         : float
+           , s1_lmin         : int  , s1_lmax      : int
+           , s1_tmin         : float, s1_tmax      : float
+           , s1_rebin_stride : int  , s1_stride    : int
+           , thr_csum_s1     : float
+           , s2_lmin         : int  , s2_lmax      : int
+           , s2_tmin         : float, s2_tmax      : float
+           , s2_rebin_stride : int  , s2_stride    : int
+           , thr_csum_s2     : float 
+           , pmt_samp_wid    : float
+           ):
 
     #### Define data transformations
     # WaveForm to Calibrated WaveForm

@@ -26,7 +26,7 @@ from typing import     List
 from invisible_cities.core                   import        system_of_units as units
 
 from invisible_cities.io    .event_filter_io import    event_filter_writer
-from invisible_cities.reco                   import          tbl_functions as tbl
+from invisible_cities.core                   import          tbl_functions as tbl
 
 from invisible_cities. dataflow   import                   dataflow as fl
 
@@ -36,6 +36,9 @@ from invisible_cities.cities.components import               copy_mc_info
 from invisible_cities.cities.components import                print_every
 from invisible_cities.cities.components import                  wf_binner
 from invisible_cities.cities.components import             check_max_time
+from invisible_cities. core .configure  import             EventRangeType
+from invisible_cities. core .configure  import             OneOrManyFiles
+
 
 from .. detsim.sensor_utils    import        pmt_bin_width
 from .. detsim.sensor_utils    import first_and_last_times
@@ -46,9 +49,19 @@ from .  components             import calculate_and_save_buffers
 from .  components             import mcsensors_from_file
 
 @city
-def adelma(files_in     , file_out   , compression      , event_range,
-          print_mod    , detector_db, run_number       , max_time   ,
-          buffer_length, pre_trigger, trigger_threshold, rate       ):
+def adelma( files_in         : OneOrManyFiles
+          , file_out         : str
+          , compression      : str
+          , event_range      : EventRangeType
+          , print_mod        : int
+          , detector_db      : str
+          , run_number       : int
+          , max_time          : float
+          , buffer_length     : float
+          , pre_trigger       : float
+          , trigger_threshold : float
+          , rate              : float
+          ):
 
     max_time    = check_max_time(max_time, buffer_length)
     npmt        = get_n_sensors(detector_db, run_number)
