@@ -62,7 +62,7 @@ def thekla( files_in        : OneOrManyFiles
           , s2_lmin         : int  , s2_lmax     : int
           , s2_tmin         : float, s2_tmax     : float
           , s2_rebin_stride : int  , s2_stride   : int
-          , thr_csum_s2     : float, thr_sipm_s2 : float
+          , thr_csum_s2     : float, 
           , pmt_samp_wid    : float
           ):
     
