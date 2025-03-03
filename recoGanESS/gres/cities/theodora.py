@@ -50,7 +50,7 @@ from invisible_cities. core .configure  import             OneOrManyFiles
 from invisible_cities. types.symbols       import               XYReco
 
 
-from .components import compute_xy_position
+from invisible_cities.cities.components import compute_xy_position
 from .components import build_pointlike_event  as build_pointlike_event_
 
 from typing import Optional
