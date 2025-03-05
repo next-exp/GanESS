@@ -63,7 +63,7 @@ def octavia( files_in        : OneOrManyFiles
     # WaveForm to Calibrated WaveForm
     rwf_to_cwf      = fl.map(calibrate_pmts(detector_db, run_number, n_baseline, n_maw, thr_maw),
                               args = "pmt",
-                              out  = ("cwfs", "cwfs_maw", "cwf_sum", "cwf_sum_maw"))
+                              out  = ("ccwfs", "ccwfs_maw", "cwf_sum", "cwf_sum_maw"))
 
     # Find where waveform is above threshold
     zero_suppress    = fl.map(zero_suppress_wfs(thr_csum_s1, thr_csum_s2),

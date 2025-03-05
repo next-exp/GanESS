@@ -171,7 +171,7 @@ def compute_and_write_pmaps(detector_db, run_number, pmt_samp_wid,
     compute_pmap     = fl.map(build_pmap(detector_db, run_number, pmt_samp_wid,
                                          s1_lmax, s1_lmin, s1_rebin_stride, s1_stride, s1_tmax, s1_tmin,
                                          s2_lmax, s2_lmin, s2_rebin_stride, s2_stride, s2_tmax, s2_tmin),
-                              args = ("cwfs", "s1_indices", "s2_indices"),
+                              args = ("ccwfs", "s1_indices", "s2_indices"),
                               out  = "pmap")
 
     # Filter events with zero peaks

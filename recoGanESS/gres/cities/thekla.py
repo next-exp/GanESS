@@ -18,7 +18,8 @@ import tables as tb
 
 from functools import partial
 
-from invisible_cities. reco                  import sensor_functions     as sf
+from invisible_cities. detsim                  import sensor_functions     as sf
+#from invisible_cities. reco                  import sensor_functions     as sf
 from invisible_cities.core                   import          tbl_functions as tbl
 from invisible_cities. core                  import system_of_units      as units
 from invisible_cities. io  .run_and_event_io import run_and_event_writer
@@ -62,7 +63,7 @@ def thekla( files_in        : OneOrManyFiles
           , s2_lmin         : int  , s2_lmax     : int
           , s2_tmin         : float, s2_tmax     : float
           , s2_rebin_stride : int  , s2_stride   : int
-          , thr_csum_s2     : float, 
+          , thr_csum_s2     : float 
           , pmt_samp_wid    : float
           ):
     
