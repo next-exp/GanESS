@@ -1,5 +1,5 @@
 from invisible_cities.evm.event_model import Event
-
+import numpy as np
 class KrEvent(Event):
     """Represents a point-like (Krypton) event."""
     def __init__(self, event_number, event_time):
